@@ -3,13 +3,13 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDpR7j3Kw_wNPEkNILy79DEW4434ri5Pyw",
-  authDomain: "hoplafix.firebaseapp.com",
-  projectId: "hoplafix",
-  storageBucket: "hoplafix.firebasestorage.app",
-  messagingSenderId: "310825078245",
-  appId: "1:310825078245:web:5076397f15a0bd1df1f30c",
-  measurementId: "G-MGL7Q1S4C3"
+  apiKey: "AIzaSyAJ7jfeSwzA_OnZJxvoR0iSDOiCaIStSaw",
+  authDomain: "hopla-7bfe3.firebaseapp.com",
+  projectId: "hopla-7bfe3",
+  storageBucket: "hopla-7bfe3.firebasestorage.app",
+  messagingSenderId: "977059782327",
+  appId: "1:977059782327:web:275d74ed2fdd213e92f732",
+  measurementId: "G-C51QM3EJW5"
 };
 
 // Initialize Firebase
