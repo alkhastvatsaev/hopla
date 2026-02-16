@@ -9,7 +9,7 @@ const getStripe = () => {
     );
   }
   return new Stripe(key, {
-    apiVersion: "2025-01-27-acacia" as any,
+    apiVersion: "2023-10-16" as any,
   });
 };
 
