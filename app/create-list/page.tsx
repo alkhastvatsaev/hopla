@@ -514,76 +514,94 @@ export default function CreateListing() {
 
         {stage === 3 && (
           <>
-            <h1 style={{ fontSize: '34px', fontWeight: '700', letterSpacing: '-0.5px', marginBottom: '8px' }}>Livraison</h1>
-            <p style={{ color: '#86868b', fontSize: '17px', marginBottom: '32px' }}>Frais calculés selon la distance ({dist}km)</p>
+            {/* NEW CLIENT-CENTRIC SUMMARY */}
+            <div style={{ background: 'white', borderRadius: '24px', padding: '24px', marginBottom: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+              
+              {/* HEADER: TRAJET & TEMPS */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '48px', height: '48px', background: '#eef2ff', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <Smartphone size={24} color="#007AFF" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13px', color: '#86868b', fontWeight: '600' }}>Estimation</div>
+                      <div style={{ fontSize: '18px', fontWeight: '800', color: '#1d1d1f' }}>25 - 40 min</div>
+                    </div>
+                 </div>
+                 <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '13px', color: '#86868b', fontWeight: '600' }}>Distance</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700' }}>{dist} km</div>
+                 </div>
+              </div>
 
+              {/* TRAJET VISUAL */}
+              <div style={{ position: 'relative', paddingLeft: '20px', marginBottom: '24px' }}>
+                 <div style={{ position: 'absolute', left: '0', top: '4px', bottom: '4px', width: '2px', background: '#e5e5ea' }}></div>
+                 
+                 <div style={{ marginBottom: '24px', position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-24px', top: '2px', width: '10px', height: '10px', background: '#007AFF', borderRadius: '50%', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}></div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#86868b', marginBottom: '2px' }}>DEPUIS</div>
+                    <div style={{ fontSize: '15px', fontWeight: '600', color: '#1d1d1f' }}>
+                      {isColis ? pickupLocation.split(',')[0] : 'Magasin / Supermarché'}
+                    </div>
+                 </div>
+
+                 <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-24px', top: '2px', width: '10px', height: '10px', background: '#34c759', borderRadius: '50%', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}></div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#86868b', marginBottom: '2px' }}>VERS</div>
+                    <div style={{ fontSize: '15px', fontWeight: '600', color: '#1d1d1f' }}>
+                      {location.split(',')[0]}
+                    </div>
+                 </div>
+              </div>
+
+              {/* DETAILS COMMANDE */}
+              <div style={{ background: '#f5f5f7', borderRadius: '16px', padding: '16px' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '500' }}>Votre commande</span>
+                    <span style={{ fontSize: '14px', fontWeight: '700' }}>{isColis ? 'Colis' : `${items.length} articles`}</span>
+                 </div>
+                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '500' }}>Frais de livraison</span>
+                    <span style={{ fontSize: '14px', fontWeight: '700' }}>{deliveryFee.toFixed(2)}€</span>
+                 </div>
+                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '500' }}>Pourboire</span>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: tip > 0 ? '#34c759' : '#1d1d1f' }}>{tip === 0 ? '-' : `+${tip.toFixed(2)}€`}</span>
+                 </div>
+              </div>
+            </div>
 
             <div style={{ marginBottom: '32px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '12px' }}>Pourboire optionnel</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '12px' }}>Remercier le livreur (Optionnel)</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                 {[0, 2, 5, 10].map(val => (
                   <button key={val} onClick={() => setTip(val)} style={{
-                    padding: '16px 0', borderRadius: '16px', border: '1px solid',
+                    padding: '12px 0', borderRadius: '12px', border: '1px solid',
                     borderColor: tip === val ? '#007AFF' : '#d2d2d7',
                     background: tip === val ? '#f5faff' : 'white',
                     color: tip === val ? '#007AFF' : '#1d1d1f',
-                    fontSize: '15px', fontWeight: '700'
+                    fontSize: '14px', fontWeight: '700', transition: 'all 0.2s'
                   }}>
-                    {val === 0 ? 'Aucun' : `+${val}€`}
+                    {val === 0 ? 'Non' : `+${val}€`}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div style={{ background: 'white', padding: '24px', borderRadius: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: '13px', textTransform: 'uppercase', color: '#86868b', fontWeight: '700', letterSpacing: '0.5px', marginBottom: '16px' }}>Résumé</div>
-              
-              {isColis ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', color: '#86868b' }}>Départ</div>
-                      <div style={{ fontWeight: '600', fontSize: '15px' }}>{pickupLocation}</div>
-                    </div>
-                    <ArrowRight size={16} color="#d2d2d7" />
-                    <div style={{ flex: 1, textAlign: 'right' }}>
-                      <div style={{ fontSize: '13px', color: '#86868b' }}>Arrivée</div>
-                      <div style={{ fontWeight: '600', fontSize: '15px' }}>{location}</div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <span style={{ color: '#86868b' }}>Articles</span>
-                    <span style={{ fontWeight: '500' }}>{items.length}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <span style={{ color: '#86868b' }}>Destination</span>
-                    <span style={{ fontWeight: '500', maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{location}</span>
-                  </div>
-                </>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f2f2f7', paddingTop: '12px', marginBottom: '8px' }}>
-                <span style={{ color: '#86868b' }}>Frais de livraison & Service</span>
-                <span style={{ fontWeight: '600' }}>{deliveryFee.toFixed(2)}€</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <span style={{ color: '#86868b' }}>Pourboire</span>
-                <span style={{ fontWeight: '600', color: tip > 0 ? '#34c759' : '#86868b' }}>{tip === 0 ? 'Aucun' : `+${tip.toFixed(2)}€`}</span>
-              </div>
-
-            </div>
-
-            <div style={{ marginTop: '32px' }}>
+            <div style={{ marginTop: '10px' }}>
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <div style={{ fontSize: '14px', color: '#86868b', marginBottom: '4px' }}>Montant de l'autorisation</div>
+                <div style={{ fontSize: '14px', color: '#86868b', marginBottom: '4px' }}>Total Estimé (Sera ajusté)</div>
                 <div style={{ fontSize: '42px', fontWeight: '800', letterSpacing: '-1px' }}>
                   {(parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)}€
                 </div>
-                <div style={{ fontSize: '12px', color: '#86868b', marginTop: '8px' }}>
-                  (Hold Bancaire : inclut tampon de sécurité pour les articles)
+                <div style={{ 
+                  fontSize: '13px', color: '#86868b', marginTop: '12px', lineHeight: '1.5',
+                  background: '#f2f2f7', padding: '12px', borderRadius: '12px'
+                }}>
+                  <ShieldCheck size={16} style={{ marginBottom: '-3px', marginRight: '4px' }} />
+                  <strong>Empreinte Bancaire uniquement.</strong><br/>
+                  Le montant final sera débité une fois que le livreur aura scanné votre ticket de caisse.
                 </div>
               </div>
 
