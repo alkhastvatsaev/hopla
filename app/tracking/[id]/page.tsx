@@ -8,6 +8,8 @@ import {
   Smartphone, User, Star
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { db } from '../../lib/firebase';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 const TrackingMap = dynamic(() => import('../../components/TrackingMap'), { 
   ssr: false,
@@ -20,9 +22,7 @@ export default function TrackingPage() {
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
-  const [messages, setMessages] = useState<any[]>([
-    { id: 1, sender: 'system', text: 'Commande validée ! Nous recherchons votre livreur...', time: '23:32' }
-  ]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
   const chatEndRef = useRef<any>(null);
   const hasGreeted = useRef(false);
@@ -37,6 +37,32 @@ export default function TrackingPage() {
     if (showChat) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, showChat]);
 
+  // Real-time Chat Subscription
+  useEffect(() => {
+    if (!params.id) return;
+    
+    // Initial system message if empty
+    if (messages.length === 0) {
+       setMessages([{ id: 'init', sender: 'system', text: 'Commande validée ! Nous recherchons votre livreur...' }]);
+    }
+
+    const q = query(
+      collection(db, `jobs/${params.id}/messages`), 
+      orderBy('timestamp', 'asc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        time: doc.data().timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''
+      }));
+      if (msgs.length > 0) setMessages(msgs);
+    });
+
+    return () => unsubscribe();
+  }, [params.id]);
+
   const fetchJob = async () => {
     try {
       const res = await fetch('/api/jobs');
@@ -50,17 +76,6 @@ export default function TrackingPage() {
         if (current.status === 'completed' || current.status === 'delivered') {
           setTimeout(() => router.push('/'), 3000); // Leave 3s for user to see "Completed" status
         }
-
-        // Simulate driver assignment and auto-message
-        if (current.status === 'taken' && !hasGreeted.current) {
-          hasGreeted.current = true;
-          setMessages(prev => [...prev, { 
-            id: 2, 
-            sender: 'driver', 
-            text: 'Bonjour ! Je prends en charge votre commande. Je me rends au magasin.', 
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-          }]);
-        }
       }
       setLoading(false);
     } catch (e) {
@@ -68,26 +83,19 @@ export default function TrackingPage() {
     }
   };
 
-  const sendMessage = () => {
-    if (!inputMsg.trim()) return;
-    const newMsg = {
-      id: Date.now(),
-      sender: 'client',
-      text: inputMsg,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setMessages([...messages, newMsg]);
-    setInputMsg('');
+  const sendMessage = async () => {
+    if (!inputMsg.trim() || !params.id) return;
     
-    // Auto-reply simulation
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        sender: 'driver',
-        text: 'C\'est bien noté ! Je termine les achats.',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
-    }, 2000);
+    try {
+      await addDoc(collection(db, `jobs/${params.id}/messages`), {
+        text: inputMsg,
+        sender: 'client',
+        timestamp: serverTimestamp()
+      });
+      setInputMsg('');
+    } catch (e) {
+      console.error("Error sending message: ", e);
+    }
   };
 
   if (loading) return null;

@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, MapPin, Camera, ArrowRight, Package, Wallet, TrendingUp, History, TrendingDown, ChevronRight, ShoppingBag, MessageCircle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, MapPin, Camera, ArrowRight, Package, Wallet, TrendingUp, History, TrendingDown, ChevronRight, ShoppingBag, MessageCircle, Upload } from 'lucide-react';
 
 export default function JobsPage() {
   const router = useRouter();
