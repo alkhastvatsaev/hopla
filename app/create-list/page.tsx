@@ -517,15 +517,6 @@ export default function CreateListing() {
             <h1 style={{ fontSize: '34px', fontWeight: '700', letterSpacing: '-0.5px', marginBottom: '8px' }}>Livraison</h1>
             <p style={{ color: '#86868b', fontSize: '17px', marginBottom: '32px' }}>Frais calculés selon la distance ({dist}km)</p>
 
-            <div style={{ background: '#007AFF', color: 'white', padding: '24px', borderRadius: '24px', marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '13px', opacity: 0.8, fontWeight: '600' }}>Frais de livraison</div>
-                <div style={{ fontSize: '32px', fontWeight: '800' }}>{deliveryFee.toFixed(2)}€</div>
-              </div>
-              <div style={{ opacity: 0.6 }}>
-                 <Package size={32} />
-              </div>
-            </div>
 
             <div style={{ marginBottom: '32px' }}>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '12px' }}>Pourboire optionnel</div>
@@ -575,21 +566,14 @@ export default function CreateListing() {
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f2f2f7', paddingTop: '12px', marginBottom: '8px' }}>
-                <span style={{ color: '#86868b' }}>Frais de livraison</span>
+                <span style={{ color: '#86868b' }}>Frais de livraison & Service</span>
                 <span style={{ fontWeight: '600' }}>{deliveryFee.toFixed(2)}€</span>
-              </div>
-              <div style={{ fontSize: '11px', color: '#86868b', marginBottom: '12px', background: '#f5f5f7', padding: '8px', borderRadius: '8px', lineHeight: '1.4' }}>
-                Calcul : 4.00€ (base) + {dist}km (trajet total) × 0.70€ + {isColis ? 'Forfait Colis' : `${items.length} articles × 0.20€`}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <span style={{ color: '#86868b' }}>Pourboire</span>
                 <span style={{ fontWeight: '600', color: tip > 0 ? '#34c759' : '#86868b' }}>{tip === 0 ? 'Aucun' : `+${tip.toFixed(2)}€`}</span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f2f2f7', paddingTop: '12px', marginBottom: '8px' }}>
-                <span style={{ fontWeight: '700' }}>Gains du livreur</span>
-                <span style={{ fontWeight: '800', color: '#007AFF', fontSize: '18px' }}>{totalReward}</span>
-              </div>
             </div>
 
             <div style={{ marginTop: '32px' }}>
