@@ -590,20 +590,17 @@ export default function CreateListing() {
             </div>
 
             <div style={{ marginTop: '10px' }}>
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <div style={{ fontSize: '14px', color: '#86868b', marginBottom: '4px' }}>Total Estimé (Sera ajusté)</div>
-                <div style={{ fontSize: '42px', fontWeight: '800', letterSpacing: '-1px' }}>
-                  {(parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)}€
+                <div style={{ background: '#f5f5f7', padding: '16px', borderRadius: '16px', display: 'inline-flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                  <div style={{ width: '40px', height: '40px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <ShieldCheck size={20} color="#34c759" /> 
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1d1d1f' }}>Empreinte Bancaire</div>
+                    <div style={{ fontSize: '12px', color: '#86868b' }}>
+                      Aucun débit immédiat • ~{(parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)}€ bloqués temporairement
+                    </div>
+                  </div>
                 </div>
-                <div style={{ 
-                  fontSize: '13px', color: '#86868b', marginTop: '12px', lineHeight: '1.5',
-                  background: '#f2f2f7', padding: '12px', borderRadius: '12px'
-                }}>
-                  <ShieldCheck size={16} style={{ marginBottom: '-3px', marginRight: '4px' }} />
-                  <strong>Empreinte Bancaire uniquement.</strong><br/>
-                  Le montant final sera débité une fois que le livreur aura scanné votre ticket de caisse.
-                </div>
-              </div>
 
               <div style={{ paddingBottom: '100px' }}>
                 <StripePayment 
