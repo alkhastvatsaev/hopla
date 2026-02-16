@@ -20,9 +20,10 @@ export async function POST(request: Request) {
 
     // Create a PaymentIntent for the specified amount
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe expects cents
+      amount: Math.round(amount * 100), 
       currency: "eur",
       metadata: { jobId },
+      capture_method: 'manual', // THIS ENABLE THE BANK HOLD
       automatic_payment_methods: {
         enabled: true,
       },
