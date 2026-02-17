@@ -567,38 +567,9 @@ export default function CreateListing() {
                     <span style={{ fontSize: '14px', fontWeight: '500' }}>Frais de livraison</span>
                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{deliveryFee.toFixed(2)}€</span>
                  </div>
-                 {tip > 0 && (
-                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>Pourboire</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500', color: '#34c759' }}>+{tip.toFixed(2)}€</span>
-                   </div>
-                 )}
               </div>
             </div>
 
-            <div style={{ marginBottom: '32px' }}>
-              <div 
-                onClick={() => {
-                   const el = document.getElementById('tip-section');
-                   if(el) el.style.display = el.style.display === 'none' ? 'grid' : 'none';
-                }}
-                style={{ fontSize: '13px', fontWeight: '600', color: '#86868b', textTransform: 'uppercase', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <TrendingUp size={14} /> Ajouter un pourboire (Optionnel)
-              </div>
-              <div id="tip-section" style={{ display: 'none', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                {[0, 2, 5, 10].map(val => (
-                  <button key={val} onClick={() => setTip(val)} style={{
-                    padding: '12px 0', borderRadius: '12px', border: '1px solid',
-                    borderColor: tip === val ? '#007AFF' : '#d2d2d7',
-                    background: tip === val ? '#f5faff' : 'white',
-                    color: tip === val ? '#007AFF' : '#1d1d1f',
-                    fontSize: '14px', fontWeight: '600', transition: 'all 0.2s'
-                  }}>
-                    {val === 0 ? 'Non' : `+${val}€`}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div style={{ marginTop: '10px' }}>
                 <div style={{ background: '#f5f5f7', padding: '16px', borderRadius: '16px', display: 'inline-flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
