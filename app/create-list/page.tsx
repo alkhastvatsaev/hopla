@@ -197,6 +197,12 @@ export default function CreateListing() {
       console.warn("Geocoding failed, using fallback", e);
     }
 
+    // FINAL FALLBACK: Ensure we ALWAYS have valid coords to prevent crashes
+    // Default to Strasbourg Center if nothing found
+    if (!finalLocationCoords) {
+       finalLocationCoords = { lat: 48.5734, lng: 7.7521 };
+    }
+
     try {
       const res = await fetch('/api/jobs', {
         method: 'POST',
