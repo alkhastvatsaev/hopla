@@ -13,7 +13,7 @@ import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 
 
 const TrackingMap = dynamic(() => import('../../components/TrackingMap'), { 
   ssr: false,
-  loading: () => <div style={{ height: '100%', width: '100%', background: '#e5e3df', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Chargement de la carte...</div>
+  loading: () => <div style={{ height: '100%', width: '100%', background: '#e5e3df', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#86868b', fontSize: '13px' }}>Initialisation carte...</div>
 });
 
 export default function TrackingPage() {
@@ -147,7 +147,15 @@ export default function TrackingPage() {
         position: 'relative', height: '45vh', width: '100%', background: '#e5e3df',
         overflow: 'hidden', zIndex: 1
       }}>
-        <TrackingMap status={job?.status} clientCoords={job?.locationCoords} />
+        {/* Tracking Map - Only render if coords exist to prevent crash */}
+        {job?.locationCoords && typeof job.locationCoords.lat === 'number' ? (
+           <TrackingMap status={job?.status || 'open'} clientCoords={job.locationCoords} />
+        ) : (
+           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#86868b' }}>
+             <MapPin size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+             <div style={{ fontSize: '13px' }}>Carte indisponible pour cette adresse</div>
+           </div>
+        )}
 
         {/* Header Overlay */}
         <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10 }}>
