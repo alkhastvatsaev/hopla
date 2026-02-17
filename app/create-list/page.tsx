@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw } from 'lucide-react';
+import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw, Wallet } from 'lucide-react';
 import { PRICE_DB } from '../lib/db';
 import StripePayment from '../components/StripePayment';
 
@@ -215,7 +215,7 @@ export default function CreateListing() {
           locationCoords: finalLocationCoords,
           pickupLocation: isColis ? pickupLocation : null,
           pickupCoords: isColis ? finalPickupCoords : null,
-          pickupCoords: isColis ? finalPickupCoords : null,
+
           reward: totalReward,
           deliveryFee,
           tip,
@@ -601,11 +601,8 @@ export default function CreateListing() {
                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{deliveryFee.toFixed(2)}€</span>
                  </div>
               </div>
-            </div>
 
 
-                  </div>
-                </div>
 
               {/* PAYMENT TOGGLE */}
               <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
@@ -645,6 +642,7 @@ export default function CreateListing() {
                 )}
               </div>
             </div>
+          </>
         )}
       </div>
 
