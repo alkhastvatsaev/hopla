@@ -120,7 +120,7 @@ export default function StripePayment({ amount, onSuccess }: StripePaymentProps)
 
   return (
     <div style={{ background: 'white', borderRadius: '24px', padding: '20px' }}>
-      <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+      <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
         <CheckoutForm amount={amount} onSuccess={onSuccess} />
       </Elements>
     </div>
