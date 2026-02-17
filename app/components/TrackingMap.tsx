@@ -5,12 +5,31 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useEffect, useState } from 'react';
 
-// Fix for default marker icons in Leaflet + Next.js
-const DefaultIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
+// Custom Destination Icon (Enhanced Minimalist Apple-style)
+const DestinationIcon = L.divIcon({
+  className: 'custom-dest-icon',
+  html: `
+    <div style="display: flex; flex-direction: column; align-items: center;">
+      <div style="
+        background: #34C759; 
+        width: 24px; height: 24px; 
+        border: 3px solid white;
+        border-radius: 50%; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        display: flex; align-items: center; justify-content: center;
+      ">
+         <div style="width: 6px; height: 6px; background: white; border-radius: 50%;"></div>
+      </div>
+      <div style="
+        width: 4px; height: 6px; 
+        background: white; 
+        margin-top: -2px;
+        clip-path: polygon(0 0, 100% 0, 50% 100%);
+      "></div>
+    </div>
+  `,
+  iconSize: [30, 30],
+  iconAnchor: [15, 28]
 });
 
 // Custom Driver Icon
@@ -40,7 +59,9 @@ const DriverIcon = L.divIcon({
 function ChangeView({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, 14);
+    if (map && center && !isNaN(center[0])) {
+      map.setView(center, map.getZoom());
+    }
   }, [center, map]);
   return null;
 }
@@ -49,24 +70,20 @@ export default function TrackingMap({ status, clientCoords }: { status: string, 
   // Strasbourg default fallback
   const strasbourgCenter: [number, number] = [48.5734, 7.7521];
   
-  // Real coordinates from job if available
-  const initialPos: [number, number] = clientCoords 
-    ? [clientCoords.lat, clientCoords.lng] 
-    : strasbourgCenter;
-
   const [driverPos, setDriverPos] = useState<[number, number]>(strasbourgCenter);
-  const [clientPos, setClientPos] = useState<[number, number]>(initialPos);
+  const [clientPos, setClientPos] = useState<[number, number]>(
+    clientCoords ? [clientCoords.lat, clientCoords.lng] : strasbourgCenter
+  );
 
-  // Update position if clientCoords arrive late (API delay)
+  // Update center when clientCoords change
   useEffect(() => {
-    if (clientCoords) {
+    if (clientCoords && !isNaN(clientCoords.lat)) {
       setClientPos([clientCoords.lat, clientCoords.lng]);
     }
   }, [clientCoords]);
 
   useEffect(() => {
     if (status === 'taken' || status === 'delivering') {
-      // Small simulated movement for demo
       const interval = setInterval(() => {
         setDriverPos(prev => [
           prev[0] + (Math.random() - 0.5) * 0.001,
@@ -77,9 +94,13 @@ export default function TrackingMap({ status, clientCoords }: { status: string, 
     }
   }, [status]);
 
+  if (typeof window === 'undefined') return null;
+
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <MapContainer 
+        id="hopla-map-container"
+        key="stable-hopla-map-v2"
         center={clientPos} 
         zoom={14} 
         scrollWheelZoom={false}
@@ -92,10 +113,10 @@ export default function TrackingMap({ status, clientCoords }: { status: string, 
           className="map-tiles"
         />
         
-        <ChangeView center={driverPos} />
+        <ChangeView center={status === 'open' ? clientPos : driverPos} />
 
         {/* Client Position */}
-        <Marker position={clientPos} icon={DefaultIcon}>
+        <Marker position={clientPos} icon={DestinationIcon}>
           <Popup>Votre destination</Popup>
         </Marker>
 

@@ -49,12 +49,13 @@ export default function CreateListing() {
   }, [stage]); // Removed 'dist' from dependencies to prevent infinite loop
 
   const deliveryFee = useMemo(() => {
-    const base = 4.00; // Légèrement plus haut pour l'effort initial
-    const distRate = 0.70; // Tarif urbain Strasbourg
-    const itemRate = 0.20; // Plus représentatif de la charge de 15 articles
+    const base = 2.50; // Plus bas pour le "last-mile"
+    const distRate = 0.90; // Récompensé au KM
+    const itemRate = 0.15; // Volume
     const complexity = isColis ? 3.00 : 0;
     
-    return parseFloat((base + (dist * distRate) + (items.length * itemRate) + complexity).toFixed(2));
+    // Minimum delivery fee of 4€
+    return Math.max(4.0, parseFloat((base + (dist * distRate) + (items.length * itemRate) + complexity).toFixed(2)));
   }, [dist, items.length, isColis]);
 
   const totalReward = (deliveryFee + tip).toFixed(2) + '€';
@@ -88,7 +89,12 @@ export default function CreateListing() {
 
   const estimatePrice = (name: string) => {
     const key = name.toLowerCase().trim();
-    const match = Object.keys(PRICE_DB).find(k => key === k) || Object.keys(PRICE_DB).find(k => key.includes(k));
+    // 1. Try exact match
+    if (PRICE_DB[key]) return PRICE_DB[key];
+    
+    // 2. Try to find if user input contains a DB key (e.g. "Pack de lait" contains "lait")
+    // or if a DB key starts with user input
+    const match = Object.keys(PRICE_DB).find(k => key.includes(k) || k.startsWith(key));
     return match ? PRICE_DB[match] : 0; 
   };
 
@@ -127,9 +133,21 @@ export default function CreateListing() {
         const { latitude, longitude } = pos.coords;
         try {
           const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`, {
-            headers: { 'Accept-Language': 'fr' }
+            headers: { 
+              'Accept-Language': 'fr',
+              // Note: Browser normally doesn't let you set User-Agent, but we'll ensure headers are clean
+            }
+          }).catch(err => {
+            console.warn("Retrying geocoding in 1s due to network error...");
+            return null;
           });
-          if (!response.ok) throw new Error(`Geo API error: ${response.status}`);
+
+          if (!response || !response.ok) {
+            // Fallback: If Nominatim fails, we just don't set the address string but keep the coordinates
+            if (target === 'pickup') setPickupLocation("Adresse trouvée par GPS");
+            else setLocation("Ma position (GPS)");
+            return;
+          }
           const data = await response.json();
           
           if (data && data.address) {
@@ -219,7 +237,9 @@ export default function CreateListing() {
           reward: totalReward,
           deliveryFee,
           tip,
-          paymentMethod, // Add payment method to job data
+          paymentMethod, 
+          isPaid: paymentMethod === 'card',
+          totalAmount: parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)),
           user: `Client #${Math.floor(Math.random() * 1000)}` 
         }),
       });
@@ -248,7 +268,7 @@ export default function CreateListing() {
         console.warn("Email failed but order created", emailErr);
       }
 
-      router.push(`/searching?jobId=${newJob.id}`); 
+      router.push(`/tracking/${newJob.id}`); 
     } catch (error) {
       console.error(error);
       alert("Erreur lors de l'envoi");
@@ -322,7 +342,7 @@ export default function CreateListing() {
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="animate-enter">
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: '600px', margin: '0 auto', width: '100%' }} className="animate-enter">
         
         {stage === 1 && (
           <>
@@ -548,7 +568,11 @@ export default function CreateListing() {
         {stage === 3 && (
           <>
             {/* NEW CLIENT-CENTRIC SUMMARY */}
-            <div style={{ background: 'white', borderRadius: '24px', padding: '24px', marginBottom: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+            <div style={{ 
+              background: 'white', borderRadius: '24px', padding: '24px', 
+              marginBottom: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+              maxWidth: '600px', margin: '0 auto 24px auto', width: '100%'
+            }}>
               
               {/* HEADER: TRAJET & TEMPS */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -590,54 +614,82 @@ export default function CreateListing() {
                  </div>
               </div>
 
-              {/* DETAILS COMMANDE */}
-              <div style={{ background: '#f5f5f7', borderRadius: '16px', padding: '16px' }}>
-                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: '500' }}>Votre commande</span>
-                    <span style={{ fontSize: '14px', fontWeight: '500' }}>{isColis ? 'Colis' : `${items.length} articles`}</span>
+              {/* DETAILS COMMANDE - Transparent Breakdown */}
+              <div style={{ background: '#f5f5f7', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '14px', color: '#86868b' }}>Articles ({items.length})</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600' }}>{estimatedTotal.toFixed(2)}€</span>
                  </div>
-                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: '500' }}>Frais de livraison</span>
-                     <span style={{ fontSize: '14px', fontWeight: '500' }}>{deliveryFee.toFixed(2)}€</span>
+                 {!isColis && (
+                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '14px', color: '#86868b' }}>Service (Commission 10%)</span>
+                      <span style={{ fontSize: '14px', fontWeight: '600' }}>{(estimatedTotal * 0.10).toFixed(2)}€</span>
+                   </div>
+                 )}
+                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '14px', color: '#86868b' }}>Livraison Rapide</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600' }}>{deliveryFee.toFixed(2)}€</span>
+                 </div>
+                 {tip > 0 && (
+                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '14px', color: '#86868b' }}>Pourboire Livreur</span>
+                      <span style={{ fontSize: '14px', fontWeight: '600' }}>{tip.toFixed(2)}€</span>
+                   </div>
+                 )}
+                 <div style={{ height: '1px', background: '#e5e5ea', margin: '4px 0' }}></div>
+                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '16px', fontWeight: '700' }}>Total à payer</span>
+                    <span style={{ fontSize: '20px', fontWeight: '800', color: '#007AFF' }}>
+                      {(estimatedTotal * (isColis ? 1 : 1.10) + deliveryFee + tip).toFixed(2)}€
+                    </span>
                  </div>
               </div>
 
 
 
               {/* PAYMENT TOGGLE */}
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-                 <button onClick={() => setPaymentMethod('card')} style={{
-                   flex: 1, padding: '16px', borderRadius: '16px', border: '1px solid',
-                   borderColor: paymentMethod === 'card' ? '#007AFF' : '#e5e5ea',
-                   background: paymentMethod === 'card' ? '#f5faff' : 'white',
-                   color: paymentMethod === 'card' ? '#007AFF' : '#1d1d1f',
-                   fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                 }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', marginTop: '24px' }}>
+                 <button 
+                   onClick={() => setPaymentMethod('card')} 
+                   style={{
+                     flex: 1, height: '48px', borderRadius: '12px', border: '1.5px solid',
+                     borderColor: paymentMethod === 'card' ? '#007AFF' : '#f2f2f7',
+                     background: paymentMethod === 'card' ? '#f5faff' : '#fafafa',
+                     color: paymentMethod === 'card' ? '#007AFF' : '#8e8e93',
+                     fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                     transition: 'all 0.2s', cursor: 'pointer', outline: 'none'
+                   }}
+                 >
                    <CreditCard size={18} /> Carte Web
                  </button>
-                 <button onClick={() => setPaymentMethod('cash')} style={{
-                   flex: 1, padding: '16px', borderRadius: '16px', border: '1px solid',
-                   borderColor: paymentMethod === 'cash' ? '#34c759' : '#e5e5ea',
-                   background: paymentMethod === 'cash' ? '#f2fcf5' : 'white',
-                   color: paymentMethod === 'cash' ? '#34c759' : '#1d1d1f',
-                   fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                 }}>
+                 <button 
+                   onClick={() => setPaymentMethod('cash')} 
+                   style={{
+                     flex: 1, height: '48px', borderRadius: '12px', border: '1.5px solid',
+                     borderColor: paymentMethod === 'cash' ? '#34c759' : '#f2f2f7',
+                     background: paymentMethod === 'cash' ? '#f2fcf5' : '#fafafa',
+                     color: paymentMethod === 'cash' ? '#34c759' : '#8e8e93',
+                     fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                     transition: 'all 0.2s', cursor: 'pointer', outline: 'none'
+                   }}
+                 >
                    <Wallet size={18} /> Espèces
                  </button>
               </div>
 
-              <div style={{ paddingBottom: '100px' }}>
+              <div>
                 {paymentMethod === 'card' ? (
                   <StripePayment 
-                    amount={parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2))}
+                    amount={parseFloat((estimatedTotal * (isColis ? 1 : 1.10) + deliveryFee + tip).toFixed(2))}
                     onSuccess={() => handlePost()}
                   />
                 ) : (
                   <button onClick={handlePost} style={{
                     width: '100%', background: '#34c759', color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
-                    fontSize: '17px', fontWeight: '700', boxShadow: '0 4px 12px rgba(52, 199, 89, 0.3)'
+                    fontSize: '17px', fontWeight: '700', boxShadow: '0 4px 12px rgba(52, 199, 89, 0.3)',
+                    cursor: 'pointer'
                   }}>
-                    Payer {parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)).toFixed(2)}€ à la livraison
+                    Payer {(estimatedTotal * (isColis ? 1 : 1.10) + deliveryFee + tip).toFixed(2)}€ à la livraison
                   </button>
                 )}
               </div>
@@ -648,42 +700,31 @@ export default function CreateListing() {
 
       {stage < 3 && (
         <div className="mobile-fixed-footer">
-          <button 
-            disabled={stage === 1 && items.length === 0 || stage === 2 && (!location || (isColis && !pickupLocation))}
-            onClick={() => {
-              if (stage === 1) {
-                if (location && !isColis) setStage(3);
-                else setStage(2);
-              } else {
-                setStage(3);
-              }
-            }}
-            style={{
-              width: '100%', background: (stage === 1 && items.length === 0 || stage === 2 && (!location || (isColis && !pickupLocation))) ? '#d2d2d7' : '#007AFF',
-              color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
-              fontSize: '17px', fontWeight: '700', transition: 'all 0.3s',
-              boxShadow: (stage === 1 && items.length === 0 || stage === 2 && (!location || (isColis && !pickupLocation))) ? 'none' : '0 10px 20px rgba(0, 122, 255, 0.2)',
-              marginTop: '20px'
-            }}>
-            Suivant
-          </button>
+          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <button 
+              disabled={stage === 1 && items.length === 0 || stage === 2 && (!location || (isColis && !pickupLocation))}
+              onClick={() => {
+                if (stage === 1) {
+                  if (location && !isColis) setStage(3);
+                  else setStage(2);
+                } else {
+                  setStage(3);
+                }
+              }}
+              style={{
+                width: '100%', background: (stage === 1 && items.length === 0 || stage === 2 && (!location || (isColis && !pickupLocation))) ? '#d2d2d7' : '#007AFF',
+                color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
+                fontSize: '17px', fontWeight: '700', transition: 'all 0.3s',
+                boxShadow: (stage === 1 && items.length === 0 || stage === 2 && (!location || (isColis && !pickupLocation))) ? 'none' : '0 10px 20px rgba(0, 122, 255, 0.2)',
+                cursor: 'pointer'
+              }}>
+              Suivant
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Loading Overlay */}
-      {submitting && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.8)', zIndex: 9999,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)'
-        }}>
-           <RefreshCw className="spin" size={40} color="#007AFF" />
-           <div style={{ marginTop: '16px', fontWeight: '600', color: '#1d1d1f' }}>Création de votre commande...</div>
-           <style jsx>{`
-             .spin { animation: spin 1s linear infinite; }
-             @keyframes spin { 100% { transform: rotate(360deg); } }
-           `}</style>
-        </div>
-      )}
+      {/* Loading Overlay Removed */}
 
 
     </div>

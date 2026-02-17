@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { MessageCircle, Send, X, Headphones } from 'lucide-react';
 import { db } from '../lib/firebase'; // Ensure firebase is initialized
 import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp } from 'firebase/firestore';
@@ -11,6 +12,13 @@ export default function SupportChat() {
   const [input, setInput] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  const isTracking = pathname?.includes('/tracking/');
+
+  const positionStyle: React.CSSProperties = isTracking 
+    ? { top: '20px', right: '80px', bottom: 'auto' }
+    : { bottom: '40px', right: '40px', top: 'auto' };
 
   useEffect(() => {
     // Generate or retrieve a consistent user ID for the chat session
@@ -67,28 +75,35 @@ export default function SupportChat() {
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="animate-float"
+        className="hover-scale"
         style={{
-          position: 'fixed', bottom: '24px', right: '24px',
-          width: '60px', height: '60px', borderRadius: '30px',
-          background: '#007AFF', color: 'white',
+          position: 'fixed', 
+          ...positionStyle,
+          width: '50px', height: '50px', borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          color: '#007AFF',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 12px rgba(0,122,255,0.3)',
-          border: 'none', cursor: 'pointer', zIndex: 9999
+          boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(255,255,255,0.4)', 
+          cursor: 'pointer', zIndex: 10000,
+          transition: 'transform 0.2s'
         }}>
-        <Headphones size={28} />
+        <MessageCircle size={24} strokeWidth={2} />
       </button>
     );
   }
 
   return (
     <div className="animate-enter" style={{
-      position: 'fixed', bottom: '24px', right: '24px',
+      position: 'fixed', 
+      ...positionStyle,
       width: '350px', maxHeight: '500px', height: '80vh',
       background: 'white', borderRadius: '24px',
-      boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
       display: 'flex', flexDirection: 'column',
-      zIndex: 9999, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)'
+      zIndex: 10001, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.05)'
     }}>
       {/* Header */}
       <div style={{
@@ -106,11 +121,7 @@ export default function SupportChat() {
 
       {/* Messages */}
       <div style={{ flex: 1, padding: '16px', overflowY: 'auto', background: '#f5f5f7', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#86868b', fontSize: '13px', marginTop: '20px' }}>
-            💬 Besoin d'aide ? Posez votre question ici.
-          </div>
-        )}
+        {/* Empty state removed */}
         {messages.map((msg) => (
           <div key={msg.id} style={{
             alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',

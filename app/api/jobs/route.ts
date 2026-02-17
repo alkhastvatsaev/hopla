@@ -58,6 +58,11 @@ export async function PUT(request: Request) {
       }, { status: 409 });
     }
 
+    // Empêcher le changement d'adresse si un livreur est déjà en route
+    if ((updates.location || updates.locationCoords) && currentJob.status !== 'open') {
+      return NextResponse.json({ error: 'Modification d\'adresse invisible une fois le livreur en route.' }, { status: 403 });
+    }
+
     await updateJob(id, { status, ...updates });
     return NextResponse.json({ id, status, ...updates });
   } catch (e: any) {

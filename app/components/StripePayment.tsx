@@ -119,10 +119,10 @@ export default function StripePayment({ amount, onSuccess }: StripePaymentProps)
   if (!clientSecret) return <div style={{ textAlign: 'center', padding: '20px', color: '#86868b' }}>Initialisation du paiement sécurisé...</div>;
 
   return (
-    <div style={{ background: 'white', borderRadius: '24px', padding: '20px' }}>
+    <>
       <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
         <CheckoutForm amount={amount} onSuccess={onSuccess} />
       </Elements>
-    </div>
+    </>
   );
 }

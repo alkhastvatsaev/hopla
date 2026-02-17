@@ -1,249 +1,692 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageCircle, MapPin, Package, Clock, ShieldCheck } from 'lucide-react';
+import { 
+  ArrowLeft, MapPin, MessageCircle, Send, 
+  ShoppingBag, CheckCircle2, Navigation, 
+  Smartphone, User, Star, ChevronDown, ChevronUp, Pencil, Check,
+  CreditCard, Wallet
+} from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { db } from '../../lib/firebase';
+import { doc, onSnapshot, collection, addDoc, query, orderBy, serverTimestamp, where } from 'firebase/firestore';
 import JobChat from '../../components/JobChat';
 
-export default function MinimalTrackingPage({ params }: { params: { id: string } }) {
+const TrackingMap = dynamic(() => import('../../components/TrackingMap'), { 
+  ssr: false,
+  loading: () => <div style={{ height: '100%', width: '100%', background: '#e5e3df', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#86868b', fontSize: '13px' }}>Initialisation carte...</div>
+});
+
+export default function TrackingPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const resolvedParams = use(params);
+  const jobId = resolvedParams.id;
+  
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [showTipModal, setShowTipModal] = useState(false);
+  const [selectedTip, setSelectedTip] = useState<number | null>(null);
+  const [showItems, setShowItems] = useState(true);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [tempAddress, setTempAddress] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [searchTimeoutRef] = useState<any>({ current: null });
+  const isUpdatingRef = useRef(false);
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [isTipping, setIsTipping] = useState(false);
 
   useEffect(() => {
-    const fetchJob = async () => {
-      try {
-        const res = await fetch(`/api/jobs?id=${params.id}`);
-        if (!res.ok) throw new Error('Job not found');
-        const foundJob = await res.json();
-        setJob(foundJob);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!jobId) return;
+
+    // Use onSnapshot for real-time updates instead of polling
+    const jobRef = doc(db, 'jobs', jobId);
+    const unsubscribe = onSnapshot(jobRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const current = { id: snapshot.id, ...snapshot.data() } as any;
+        
+        // Prevent reversion: only update state if we are NOT currently sending a manual update
+        if (!isUpdatingRef.current) {
+          setJob(current);
+        }
+        
+        if (current.status !== 'open') {
+          setIsEditingAddress(false);
+        }
+        
+        // Auto-show tip modal if mission is finished
+        if ((current.status === 'completed' || current.status === 'delivered') && !showTipModal) {
+          setShowTipModal(true);
+        }
       }
-    };
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore sync error:", error);
+      setLoading(false);
+    });
 
-    fetchJob();
-    const interval = setInterval(fetchJob, 3000);
-    return () => clearInterval(interval);
-  }, [params.id]);
+    return () => unsubscribe();
+  }, [jobId, showTipModal]);
 
-  if (loading) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: '#f5f5f7'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            width: '60px', 
-            height: '60px', 
-            border: '4px solid #e5e5ea',
-            borderTopColor: '#007AFF',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
-          }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <p style={{ color: '#86868b' }}>Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!job) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: '#f5f5f7',
-        padding: '20px'
-      }}>
-        <div style={{ 
-          background: 'white', 
-          borderRadius: '24px', 
-          padding: '32px',
-          textAlign: 'center',
-          maxWidth: '400px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>❌</div>
-          <h2 style={{ marginBottom: '12px' }}>Commande introuvable</h2>
-          <p style={{ color: '#86868b', marginBottom: '24px' }}>
-            Cette commande n'existe pas ou a été supprimée.
-          </p>
-          <button 
-            onClick={() => router.push('/')}
-            style={{
-              width: '100%',
-              padding: '16px',
-              background: '#007AFF',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Retour à l'accueil
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const getStatusInfo = () => {
-    switch (job.status) {
-      case 'open':
-        return { emoji: '🔍', text: 'Recherche de livreur...', color: '#007AFF' };
-      case 'taken':
-        return { emoji: '🚗', text: 'Livreur en route', color: '#34c759' };
-      case 'delivering':
-        return { emoji: '📦', text: 'Livraison en cours', color: '#34c759' };
-      case 'completed':
-        return { emoji: '✅', text: 'Livré !', color: '#34c759' };
-      case 'cancelled':
-        return { emoji: '❌', text: 'Annulé', color: '#ff3b30' };
-      default:
-        return { emoji: '📦', text: 'En cours', color: '#86868b' };
+  const cancelJob = async () => {
+    try {
+      console.log('Attempting to cancel job:', jobId);
+      const res = await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: jobId, status: 'cancelled' }),
+      });
+      if (res.ok) {
+        router.push('/');
+      } else {
+        const err = await res.json();
+        console.error('Cancel failed:', err);
+        alert('Erreur lors de l\'annulation: ' + (err.error || 'Inconnu'));
+      }
+    } catch (e) {
+      console.error('Cancel catch error:', e);
+      alert('Erreur réseau lors de l\'annulation');
     }
   };
 
-  const statusInfo = getStatusInfo();
+  const saveAddress = async () => {
+    if (!tempAddress.trim() || tempAddress === job.location) {
+      setIsEditingAddress(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: jobId, location: tempAddress }),
+      });
+      if (res.ok) {
+        setJob({ ...job, location: tempAddress });
+        setIsEditingAddress(false);
+      }
+    } catch (e) {
+      console.error("Error updating address:", e);
+      alert("Erreur lors de la mise à jour de l'adresse");
+    }
+  };
+
+  const handleAddressSearch = (val: string) => {
+    setTempAddress(val);
+    
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    
+    if (val.length < 4) {
+      setAddressSuggestions([]);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(val)}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          setAddressSuggestions(data);
+        }
+      } catch (e: any) {
+        if (e.name !== 'AbortError') {
+          console.warn("Search fetch failed", e);
+        }
+      }
+    }, 400); // 400ms debounce
+  };
+
+  const selectSuggestion = async (s: any) => {
+    const newAddr = s.display_name.split(',').slice(0, 3).join(',');
+    const newCoords = { lat: parseFloat(s.lat), lng: parseFloat(s.lon) };
+    
+    // Close UI immediately and LOCK sync
+    setAddressSuggestions([]);
+    setIsEditingAddress(false);
+    isUpdatingRef.current = true;
+    
+    // Optimistic UI update
+    setJob((prev: any) => ({ ...prev, location: newAddr, locationCoords: newCoords }));
+
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: jobId, 
+          location: newAddr,
+          locationCoords: newCoords
+        }),
+      });
+
+      if (res.ok) {
+        // Keep the lock for a bit to let Firestore background sync catch up
+        setTimeout(() => {
+          isUpdatingRef.current = false;
+        }, 2000);
+      } else {
+        isUpdatingRef.current = false;
+      }
+    } catch (e) {
+      console.error("Failed to sync address change to server", e);
+      isUpdatingRef.current = false;
+    }
+  };
+
+  if (!mounted) return null; // Avoid Hydration mismatch
+  
+  if (loading) return (
+     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', color: '#86868b' }}>
+       <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            width: '40px', height: '40px', border: '3px solid #e5e5ea', borderTopColor: '#007AFF', 
+            borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' 
+          }} />
+          <div style={{ fontSize: '15px', fontWeight: '500' }}>Chargement...</div>
+       </div>
+       <style jsx>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+     </div>
+  );
+
+  if (!job) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', padding: '20px' }}>
+        <div style={{ background: 'white', borderRadius: '24px', padding: '32px', textAlign: 'center', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📍</div>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '12px' }}>Commande introuvable</h2>
+          <p style={{ color: '#86868b', marginBottom: '24px', fontSize: '15px' }}>Cette commande n'existe pas ou a été annulée.</p>
+          <button onClick={() => router.push('/')} style={{ width: '100%', padding: '16px', background: '#007AFF', color: 'white', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: '600' }}>Retour à l'accueil</button>
+        </div>
+      </div>
+    );
+  }
+
+  const getStatusLabel = () => {
+    switch(job.status) {
+      case 'open': return 'Recherche d\'un livreur...';
+      case 'taken': return 'Courses en cours';
+      case 'delivering': return 'Livraison en cours';
+      case 'completed': return 'Livraison terminée';
+      case 'delivered': return 'Livraison terminée';
+      case 'cancelled': return 'Commande annulée';
+      default: return 'Suivi de commande';
+    }
+  };
+
+  const stepIndex = job.status === 'open' ? 0 : (['taken', 'delivering'].includes(job.status) ? 1 : 2);
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: '#f5f5f7',
-      padding: '20px'
+    <div style={{
+      minHeight: '100vh',
+      color: '#1d1d1f',
+      position: 'relative',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif',
+      overflow: 'hidden' // Prevent root bounce
     }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ 
-          background: 'white', 
-          borderRadius: '24px', 
-          padding: '32px',
-          marginBottom: '20px',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>{statusInfo.emoji}</div>
-          <h1 style={{ 
-            fontSize: '24px', 
-            fontWeight: '700',
-            color: statusInfo.color,
-            marginBottom: '8px'
-          }}>
-            {statusInfo.text}
-          </h1>
-          <p style={{ color: '#86868b', fontSize: '14px' }}>
-            Commande #{job.id.slice(0, 8)}
-          </p>
-        </div>
+      
+      {/* 1. BACKGROUND MAP - FULLSCREEN & FIXED */}
+      <div style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 1,
+        background: '#e5e3df'
+      }}>
+        <TrackingMap status={job.status || 'open'} clientCoords={job.locationCoords} />
+      </div>
 
-        {/* Details */}
-        <div style={{ 
-          background: 'white', 
-          borderRadius: '24px', 
-          padding: '24px',
-          marginBottom: '20px'
+      {/* 2. FLOATING HEADER */}
+      <div style={{
+        position: 'fixed',
+        top: 'env(safe-area-inset-top, 20px)',
+        left: 0, right: 0,
+        zIndex: 100,
+        pointerEvents: 'none'
+      }}>
+        <div style={{
+          maxWidth: '600px',
+          margin: '0 auto',
+          padding: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: '600' }}>
-            Détails de la commande
-          </h3>
+          <button 
+            onClick={() => router.push('/')}
+            style={{
+              width: '44px', height: '44px',
+              borderRadius: '22px',
+              background: 'white',
+              border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
+              cursor: 'pointer',
+              pointerEvents: 'auto'
+            }}
+          >
+            <ArrowLeft size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* 3. SCROLLABLE CONTENT AREA */}
+      <div style={{
+        position: 'relative',
+        zIndex: 2,
+        height: '100vh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* Transparent top half to show map */}
+        <div style={{ height: '40vh', flexShrink: 0 }} />
+
+        {/* The "Sheet" Container */}
+        <div style={{
+          minHeight: '100vh',
+          background: 'white',
+          borderTopLeftRadius: '32px',
+          borderTopRightRadius: '32px',
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.08)',
+          maxWidth: '600px',
+          margin: '0 auto',
+          width: '100%',
+          padding: '32px 24px 120px 24px',
+          position: 'relative',
+          flex: 1
+        }}>
           
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '13px', color: '#86868b', marginBottom: '4px' }}>
-              Livraison
+          {/* Header Section */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+            <div>
+              <h1 style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '-0.5px', marginBottom: '4px' }}>
+                {getStatusLabel()}
+              </h1>
+              <p style={{ color: '#86868b', fontSize: '15px' }}>
+                {job.status === 'open' 
+                  ? 'Nous prévenons les livreurs à proximité...' 
+                  : job.status === 'cancelled' 
+                    ? 'Cette commande a été annulée.' 
+                    : `Livreur : ${job.driverName || 'En route'}`
+                }
+              </p>
             </div>
-            <div style={{ fontSize: '16px', fontWeight: '500' }}>
-              {job.location}
-            </div>
+            
+            {job.status !== 'open' && job.status !== 'cancelled' && (
+              <button 
+                onClick={() => setShowChat(true)}
+                style={{
+                  width: '48px', height: '48px',
+                  borderRadius: '24px',
+                  background: '#F2F2F7',
+                  border: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#007AFF',
+                  cursor: 'pointer'
+                }}
+              >
+                <MessageCircle size={22} />
+              </button>
+            )}
           </div>
 
-          {job.pickupLocation && (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '13px', color: '#86868b', marginBottom: '4px' }}>
-                Point de retrait
-              </div>
-              <div style={{ fontSize: '16px', fontWeight: '500' }}>
-                {job.pickupLocation}
-              </div>
+          {/* Progress Bar Container */}
+          {job.status !== 'cancelled' && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{
+                  flex: 1, height: '6px', borderRadius: '3px',
+                  background: i <= stepIndex ? '#007AFF' : '#F2F2F7',
+                  transition: 'background 0.5s ease'
+                }} />
+              ))}
             </div>
           )}
 
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '13px', color: '#86868b', marginBottom: '4px' }}>
-              Articles
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: '500' }}>
-              {job.items?.length || 0} article{job.items?.length > 1 ? 's' : ''}
-            </div>
-          </div>
+          {/* INSET CARDS SECTION */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+            {/* 1. Command Detail Cell */}
+            <div 
+              style={{
+                background: '#F9F9FB',
+                borderRadius: '24px',
+                padding: '16px',
+                transition: 'all 0.2s ease',
+                border: '1px solid #F2F2F7'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  width: '56px', height: '56px',
+                  borderRadius: '16px',
+                  background: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                  <ShoppingBag size={24} color="#007AFF" />
+                </div>
+                
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '17px' }}>
+                    {job.type === 'colis' ? 'Mon Colis' : 'Ma commande'}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#86868b' }}>
+                    {job.items?.length || 0} articles • {job.location?.split(',')[0]}
+                  </div>
+                </div>
 
-          <div style={{ 
-            borderTop: '1px solid #e5e5ea',
-            paddingTop: '16px',
-            marginTop: '16px'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              fontSize: '18px',
-              fontWeight: '700'
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontWeight: '800', fontSize: '18px' }}>{job.reward}</span>
+                </div>
+              </div>
+
+              {/* Always visible Item List */}
+              {job.items && job.items.length > 0 && (
+                <div style={{ 
+                  marginTop: '16px', 
+                  paddingTop: '16px', 
+                  borderTop: '1px solid #E5E5EA',
+                  display: 'flex', flexDirection: 'column', gap: '8px'
+                }}>
+                  {job.items.map((item: any, idx: number) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                      <span style={{ fontWeight: '500' }}>{typeof item === 'string' ? item : item.name}</span>
+                      {item.price && <span style={{ color: '#86868b' }}>{item.price.toFixed(2)}€</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Delivery Address Cell */}
+            <div 
+              style={{
+                background: '#F9F9FB',
+                borderRadius: '24px',
+                padding: '16px',
+                border: '1px solid #F2F2F7',
+                position: 'relative'
+              }}
+            >
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div style={{
+                  width: '56px', height: '56px',
+                  borderRadius: '16px',
+                  background: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                  <Navigation size={24} color="#34C759" />
+                </div>
+                
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12px', color: '#86868b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Adresse de livraison
+                  </div>
+                  {isEditingAddress ? (
+                    <div style={{ position: 'relative', marginTop: '4px' }}>
+                      <input 
+                        value={tempAddress}
+                        onChange={(e) => handleAddressSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && saveAddress()}
+                        autoFocus
+                        style={{
+                          width: '100%', padding: '10px 12px',
+                          borderRadius: '12px', border: '2px solid #007AFF',
+                          fontSize: '15px', fontWeight: '600', outline: 'none'
+                        }}
+                      />
+                      {addressSuggestions.length > 0 && (
+                        <div style={{
+                          position: 'absolute', top: '100%', left: 0, right: 0,
+                          background: 'white', borderRadius: '16px', marginTop: '8px',
+                          boxShadow: '0 10px 30px rgba(0,0,0,0.15)', zIndex: 50,
+                          overflow: 'hidden', border: '1px solid #F2F2F7'
+                        }}>
+                          {addressSuggestions.map((s, i) => (
+                            <div 
+                              key={i}
+                              onClick={() => selectSuggestion(s)}
+                              style={{ 
+                                padding: '12px 16px', borderBottom: '1px solid #F2F2F7',
+                                cursor: 'pointer' 
+                              }}
+                            >
+                              <div style={{ fontWeight: '600', fontSize: '14px' }}>{s.display_name.split(',')[0]}</div>
+                              <div style={{ fontSize: '12px', color: '#86868b' }}>{s.display_name.split(',').slice(1,3).join(',')}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontWeight: '600', fontSize: '15px', marginTop: '2px' }}>
+                      {job.location}
+                    </div>
+                  )}
+                </div>
+
+                {job.status === 'open' && (
+                  <button 
+                    onClick={() => isEditingAddress ? saveAddress() : setIsEditingAddress(true)}
+                    style={{
+                      width: '36px', height: '36px',
+                      borderRadius: '18px',
+                      background: 'white',
+                      border: '1px solid #E5E5EA',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#007AFF',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {isEditingAddress ? <Check size={18} /> : <Pencil size={18} />}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Driver Context (If taken) */}
+            {job.status !== 'open' && job.driverName && (
+              <div style={{
+                background: '#F9F9FB',
+                borderRadius: '24px',
+                padding: '16px',
+                border: '1px solid #F2F2F7',
+                display: 'flex', gap: '16px', alignItems: 'center'
+              }}>
+                <div style={{
+                  width: '56px', height: '56px',
+                  borderRadius: '28px',
+                  background: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                  overflow: 'hidden'
+                }}>
+                  <User size={30} color="#AEAEB2" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '16px' }}>{job.driverName}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#FF9500' }}>
+                    <Star size={14} fill="#FF9500" />
+                    <span style={{ fontWeight: '600' }}>4.9 • Votre livreur Hopla</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Payment Context */}
+            <div style={{
+              background: '#F9F9FB',
+              borderRadius: '24px',
+              padding: '16px',
+              border: '1px solid #F2F2F7',
+              display: 'flex', gap: '16px', alignItems: 'center'
             }}>
-              <span>Total</span>
-              <span>{job.reward}</span>
+              <div style={{
+                width: '56px', height: '56px',
+                borderRadius: '16px',
+                background: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+              }}>
+                {job.paymentMethod === 'cash' ? <Wallet size={24} color="#FF9500" /> : <CreditCard size={24} color="#007AFF" />}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', color: '#86868b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Mode de paiement
+                </div>
+                <div style={{ fontWeight: '600', fontSize: '15px', marginTop: '2px' }}>
+                  {job.paymentMethod === 'cash' ? 'Espèces (à la livraison)' : 'Carte Bancaire (Payé)'}
+                </div>
+              </div>
             </div>
+            
           </div>
+
+          {/* Cancellation section */}
+          {['open', 'taken'].includes(job.status) && (
+            <div style={{ marginTop: '48px', textAlign: 'center' }}>
+              <button 
+                onClick={cancelJob}
+                style={{
+                  background: 'none', border: 'none',
+                  color: '#8E8E93', fontSize: '14px', fontWeight: '500',
+                  cursor: 'pointer', opacity: 0.8,
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#FF3B30')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#8E8E93')}
+              >
+                Annuler ma commande
+              </button>
+            </div>
+          )}
+
         </div>
-
-        {/* Floating Chat Button */}
-        {job.status !== 'open' && job.status !== 'cancelled' && job.status !== 'completed' && (
-          <button 
-            onClick={() => setShowChat(true)}
-            style={{
-              position: 'fixed', bottom: '100px', right: '24px',
-              width: '60px', height: '60px', borderRadius: '50%',
-              background: '#007AFF', color: 'white', border: 'none',
-              boxShadow: '0 8px 30px rgba(0,122,255,0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              zIndex: 1000, cursor: 'pointer'
-            }}
-          >
-            <MessageCircle size={28} />
-          </button>
-        )}
-
-        {/* Actions */}
-        <button 
-          onClick={() => router.push('/')}
-          style={{
-            width: '100%',
-            padding: '18px',
-            background: 'white',
-            color: '#1d1d1f',
-            border: 'none',
-            borderRadius: '16px',
-            fontSize: '17px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-          }}
-        >
-          Retour à l'accueil
-        </button>
       </div>
 
+      {/* OVERLAYS */}
       {showChat && (
-        <JobChat jobId={params.id} role="client" onClose={() => setShowChat(false)} />
+        <JobChat jobId={jobId} role="client" onClose={() => setShowChat(false)} />
       )}
+
+      {showTipModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', 
+          backdropFilter: 'blur(10px)', zIndex: 2000,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+        }}>
+            <div className="animate-slide-up" style={{
+              background: 'white', width: '100%', maxWidth: '500px', 
+              borderTopLeftRadius: '32px', borderTopRightRadius: '32px',
+              padding: '40px 24px', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+              textAlign: 'center'
+            }}>
+              {showThankYou ? (
+                <div className="animate-enter">
+                  <h2 style={{ fontSize: '26px', fontWeight: '800', marginBottom: '12px', marginTop: '20px' }}>Merci !</h2>
+                  <p style={{ color: '#86868b', fontSize: '17px', lineHeight: '1.5', marginBottom: '32px' }}>
+                    Votre commande est terminée. {selectedTip ? `Votre pourboire de ${selectedTip}€ a bien été transmis.` : ''}<br/>
+                    À bientôt sur <strong>Hopla</strong> !
+                  </p>
+                  <button 
+                    onClick={() => router.push('/')} 
+                    style={{
+                      width: '100%', background: '#007AFF', color: 'white', border: 'none', 
+                      borderRadius: '18px', height: '60px', fontSize: '18px', fontWeight: '700',
+                      boxShadow: '0 10px 20px rgba(0, 122, 255, 0.2)'
+                    }}
+                  >
+                    Retour à l'accueil
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <div style={{ fontSize: '64px', marginBottom: '16px' }}>📦</div>
+                    <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px' }}>Livraison réussie !</h2>
+                    <p style={{ color: '#86868b', fontSize: '16px' }}>Un petit pourboire pour votre livreur ?</p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '32px' }}>
+                     {[0, 2, 5, 10].map(val => (
+                       <button 
+                        key={val} 
+                        onClick={() => setSelectedTip(val)} 
+                        style={{
+                          height: '60px', borderRadius: '18px', border: '1.5px solid',
+                          borderColor: selectedTip === val ? '#007AFF' : '#E5E5EA',
+                          background: selectedTip === val ? '#F5FAFF' : 'white',
+                          color: selectedTip === val ? '#007AFF' : '#1D1D1F',
+                          fontWeight: '700', fontSize: '17px',
+                          transition: 'all 0.2s'
+                        }}
+                       >
+                         {val === 0 ? 'Non' : `${val}€`}
+                       </button>
+                     ))}
+                  </div>
+
+                  <button 
+                    onClick={async () => { 
+                      if (selectedTip && selectedTip > 0) {
+                        setIsTipping(true);
+                        try {
+                          // Real database update via our API
+                          await fetch('/api/jobs', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              id: jobId, 
+                              postTip: selectedTip // Send as a special post-tip field
+                            }),
+                          });
+                          
+                          // Simulation delay for the "Apple Pay" feel
+                          await new Promise(r => setTimeout(r, 1000));
+                        } catch (e) {
+                          console.error("Tip update failed", e);
+                        } finally {
+                          setIsTipping(false);
+                        }
+                      }
+                      setShowThankYou(true); 
+                    }} 
+                    disabled={isTipping}
+                    style={{
+                      width: '100%', background: '#007AFF', color: 'white', border: 'none', 
+                      borderRadius: '18px', height: '60px', fontSize: '18px', fontWeight: '700',
+                      boxShadow: '0 10px 20px rgba(0, 122, 255, 0.2)',
+                      opacity: isTipping ? 0.7 : 1
+                    }}
+                  >
+                    {isTipping ? 'Paiement sécurisé...' : 'Valider'}
+                  </button>
+                </>
+              )}
+            </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        .animate-enter { animation: enter 0.3s ease-out; }
+        @keyframes enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+      `}</style>
     </div>
   );
 }

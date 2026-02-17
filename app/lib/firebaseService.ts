@@ -20,10 +20,11 @@ export async function getJobs() {
 
 export async function createJob(jobData: any) {
   const jobsCol = collection(db, 'jobs');
+  const { status, ...rest } = jobData;
   const docRef = await addDoc(jobsCol, {
-    ...jobData,
+    ...rest,
     timestamp: Date.now(),
-    status: 'open'
+    status: status || 'open'
   });
   return { id: docRef.id };
 }

@@ -87,12 +87,20 @@ export default function JobsPage() {
 
   const completeJob = async (id: string, e: any) => {
     e.stopPropagation();
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+
+    const isCash = job.paymentMethod === 'cash';
+    const message = isCash 
+      ? `Confirmez-vous avoir reçu ${job.totalToCollect}€ en espèces ?`
+      : "Confirmez-vous avoir livré la commande ? Le client sera débité automatiquement.";
+
     try {
-      if (confirm("Confirmez-vous avoir livré la commande ? Le client sera débité du montant final automatiquement.")) {
+      if (confirm(message)) {
         await fetch('/api/jobs', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, status: 'completed' }),
+          body: JSON.stringify({ id, status: 'completed', isPaid: true }),
         });
         fetchJobs();
       }
@@ -104,7 +112,11 @@ export default function JobsPage() {
   // Stats Logic
   const completedJobs = useMemo(() => jobs.filter(j => j.status === 'completed'), [jobs]);
   const totalEarnings = useMemo(() => {
-    return completedJobs.reduce((acc, j) => acc + parseFloat(j.reward.replace('€', '').replace(',', '.')), 0).toFixed(2);
+    return completedJobs.reduce((acc, j) => {
+      const base = parseFloat(j.reward.replace('€', '').replace(',', '.'));
+      const tip = j.postTip ? parseFloat(j.postTip) : 0;
+      return acc + base + tip;
+    }, 0).toFixed(2);
   }, [completedJobs]);
 
   const cancelJob = async (id: string, e: any) => {
@@ -125,7 +137,11 @@ export default function JobsPage() {
   const earningsByDay = useMemo(() => {
     // Mock simulation: split completed jobs into today and yesterday
     const today = completedJobs.slice(0, Math.ceil(completedJobs.length / 2));
-    return today.reduce((acc, j) => acc + parseFloat(j.reward.replace('€', '').replace(',', '.')), 0).toFixed(2);
+    return today.reduce((acc, j) => {
+      const base = parseFloat(j.reward.replace('€', '').replace(',', '.'));
+      const tip = j.postTip ? parseFloat(j.postTip) : 0;
+      return acc + base + tip;
+    }, 0).toFixed(2);
   }, [completedJobs]);
 
   const myActiveJobs = useMemo(() => jobs.filter(j => ['taken', 'delivering'].includes(j.status)).slice(0, 5), [jobs]);
@@ -231,7 +247,14 @@ export default function JobsPage() {
                         </div>
                      </div>
                   </div>
-                  <div style={{ fontWeight: '700', color: '#1d1d1f' }}>+{job.reward}</div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: '700', color: '#1d1d1f' }}>
+                      {(parseFloat(job.reward.replace('€', '').replace(',', '.')) + (job.postTip || 0)).toFixed(2)}€
+                    </div>
+                    {job.postTip > 0 && (
+                      <div style={{ fontSize: '10px', color: '#34c759', fontWeight: '700' }}>+ {job.postTip}€ Tip</div>
+                    )}
+                  </div>
                 </div>
               ))}
               {completedJobs.length === 0 && (
@@ -331,8 +354,10 @@ export default function JobsPage() {
                            ) : (
                              !inputTicket[job.id] ? (
                                <div onClick={() => {
-                                 const randomTotal = (Math.random() * (30 - 5) + 5).toFixed(2);
-                                 setInputTicket({...inputTicket, [job.id]: randomTotal});
+                                 const itemTotal = job.items?.reduce((acc: number, i: any) => acc + (typeof i === 'string' ? 3 : (i.price || 3)), 0) || 5;
+                                 const variance = (Math.random() * 0.2) + 0.9;
+                                 const realisticTotal = (itemTotal * variance).toFixed(2);
+                                 setInputTicket({...inputTicket, [job.id]: realisticTotal});
                                }} style={{cursor: 'pointer'}}>
                                   <Camera size={32} style={{margin: '0 auto 8px auto', display: 'block'}} color="#86868b" />
                                   <div style={{fontSize: '14px', fontWeight: '600', color: '#1d1d1f'}}>Scanner le ticket</div>
@@ -349,9 +374,14 @@ export default function JobsPage() {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                          <div style={{ background: '#f2f2f7', borderRadius: '16px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                             <div style={{ fontSize: '13px', fontWeight: '600', color: '#86868b' }}>Total Client (Ticket + Pourboire)</div>
-                             <div style={{ fontSize: '17px', fontWeight: '800', color: '#1d1d1f' }}>{job.totalToCollect}€</div>
+                          <div style={{ background: job.paymentMethod === 'cash' ? '#fff9eb' : '#f2f2f7', borderRadius: '16px', padding: '16px', border: job.paymentMethod === 'cash' ? '1px solid #ffeeba' : 'none' }}>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                               <div style={{ fontSize: '13px', fontWeight: '600', color: job.paymentMethod === 'cash' ? '#b8860b' : '#86868b' }}>
+                                 {job.paymentMethod === 'cash' ? 'À ENCAISSER (ESPÈCES)' : 'Total Client (Payé par Carte)'}
+                               </div>
+                               {job.paymentMethod === 'cash' && <Wallet size={16} color="#b8860b" />}
+                             </div>
+                             <div style={{ fontSize: '24px', fontWeight: '800', color: job.paymentMethod === 'cash' ? '#b8860b' : '#1d1d1f' }}>{job.totalToCollect}€</div>
                           </div>
                           
                           {/* Photo Proof Section */}
@@ -428,7 +458,12 @@ export default function JobsPage() {
                         )}
                       </div>
                       <div style={{textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px', marginLeft: '8px'}}>
-                        <div style={{fontWeight: '700', color: '#34c759', fontSize: '15px'}}>{job.reward}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <div style={{fontWeight: '700', color: '#34c759', fontSize: '15px'}}>{job.reward}</div>
+                          <div style={{fontSize: '10px', fontWeight: '700', color: job.paymentMethod === 'cash' ? '#FF9500' : '#007AFF', textTransform: 'uppercase'}}>
+                            {job.paymentMethod === 'cash' ? 'Espèces' : 'Carte'}
+                          </div>
+                        </div>
                         <button onClick={(e) => acceptJob(job.id, e)} style={{
                           background: '#1d1d1f', color: 'white', border: 'none', borderRadius: '10px', padding: '8px 12px', fontSize: '13px', fontWeight: '600'
                         }}>Prendre</button>
