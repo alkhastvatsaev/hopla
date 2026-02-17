@@ -13,7 +13,12 @@ import {
 // Initialize Stripe (use your publishable key here)
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
 
-function CheckoutForm({ amount, onSuccess }: { amount: number, onSuccess: () => void }) {
+interface CheckoutFormProps {
+  amount: number;
+  onSuccess: () => void;
+}
+
+function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -29,7 +34,8 @@ function CheckoutForm({ amount, onSuccess }: { amount: number, onSuccess: () => 
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/tracking/success`,
+        // Just return to home for now to avoid redirects to non-existent pages that might 404
+        return_url: `${window.location.origin}`,
       },
       redirect: 'if_required'
     });
@@ -62,7 +68,12 @@ function CheckoutForm({ amount, onSuccess }: { amount: number, onSuccess: () => 
   );
 }
 
-export default function StripePayment({ amount, onSuccess }: { amount: number, onSuccess: () => void }) {
+interface StripePaymentProps {
+  amount: number;
+  onSuccess: () => void;
+}
+
+export default function StripePayment({ amount, onSuccess }: StripePaymentProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
