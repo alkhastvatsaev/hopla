@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function SearchingPage() {
+function SearchingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobId = searchParams.get('jobId');
@@ -100,5 +100,25 @@ export default function SearchingPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function SearchingPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontSize: '20px'
+      }}>
+        Chargement...
+      </div>
+    }>
+      <SearchingContent />
+    </Suspense>
   );
 }
