@@ -177,7 +177,23 @@ export default function JobsPage() {
         {showAccounting ? (
           <div className="animate-enter">
             {/* ACCOUNTING HUB */}
-            <div style={{ background: 'white', borderRadius: '28px', padding: '32px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '24px', textAlign: 'center' }}>
+            {/* ACCOUNTING HUB */}
+            <div style={{ background: 'white', borderRadius: '28px', padding: '32px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '24px', textAlign: 'center', position: 'relative' }}>
+                <button 
+                  onClick={async () => {
+                    if(!confirm('SUPPRIMER TOUTES LES COMMANDES ? (Action irréversible)')) return;
+                    try {
+                      await fetch('/api/jobs', { method: 'DELETE' });
+                      fetchJobs();
+                    } catch(e) { console.error(e); }
+                  }}
+                  style={{
+                    position: 'absolute', top: '16px', right: '16px',
+                    background: '#fff1f0', color: '#ff3b30', border: 'none',
+                    padding: '8px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: '700'
+                  }}>
+                  PURGER TOUT
+                </button>
                 <div style={{ fontSize: '15px', fontWeight: '600', color: '#86868b', marginBottom: '8px' }}>Solde disponible</div>
                 <div style={{ fontSize: '48px', fontWeight: '800', letterSpacing: '-1px', color: '#1d1d1f' }}>{totalEarnings}€</div>
                 <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center', color: '#34c759', background: '#f2fcf5', padding: '8px 16px', borderRadius: '20px', width: 'fit-content', margin: '20px auto 0 auto' }}>
