@@ -13,10 +13,7 @@ export default function JobsPage() {
   const [photoProof, setPhotoProof] = useState<{ [key: string]: boolean }>({});
   const [showAccounting, setShowAccounting] = useState(false);
 
-  const playSound = (type: 'success' | 'new') => {
-    const audio = new Audio(type === 'success' ? '/sounds/success.mp3' : '/sounds/notify.mp3'); // Paths to be created or simulated
-    audio.play().catch(e => console.log('Audio play failed', e)); 
-  };
+
 
   const fetchJobs = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -55,7 +52,7 @@ export default function JobsPage() {
       }
 
       if (!res.ok) throw new Error('Failed to accept job');
-      // playSound('new'); // Optional: sound when taking a job
+      // Audio removed to fix SSR crash
       fetchJobs(); 
     } catch (e) {
       console.error(e);
