@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, MapPin, Camera, ArrowRight, Package, Wallet, TrendingUp, History, TrendingDown, ChevronRight, ShoppingBag, MessageCircle, Upload } from 'lucide-react';
+import JobChat from '../components/JobChat';
 
 export default function JobsPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function JobsPage() {
   const [inputTicket, setInputTicket] = useState<{ [key: string]: string }>({});
   const [photoProof, setPhotoProof] = useState<{ [key: string]: boolean }>({});
   const [showAccounting, setShowAccounting] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
 
 
@@ -267,11 +269,15 @@ export default function JobsPage() {
                                 </svg>
                               </button>
                               {/* Chat Button */}
-                              <button onClick={() => alert("Ouverture du chat avec le client...")} style={{
-                                background: '#f2f2f7', border: 'none', borderRadius: '50%', width: '38px', height: '38px',
+                              <button onClick={() => setActiveChatId(job.id)} style={{
+                                border: activeChatId === job.id ? '2px solid #007AFF' : 'none',
+                                background: '#f2f2f7', borderRadius: '50%', width: '38px', height: '38px',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#007AFF'
                               }}>
                                 <MessageCircle size={18} />
+                                {activeChatId !== job.id && (
+                                  <div style={{ position: 'absolute', top: '-2px', right: '-2px', width: '10px', height: '10px', background: '#ff3b30', borderRadius: '50%', border: '2px solid white' }}></div>
+                                )}
                               </button>
                             </div>
                           </div>
@@ -437,6 +443,9 @@ export default function JobsPage() {
 
       </div>
 
+      {activeChatId && (
+        <JobChat jobId={activeChatId} role="driver" onClose={() => setActiveChatId(null)} />
+      )}
     </div>
   );
 }

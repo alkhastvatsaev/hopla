@@ -9,7 +9,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer re_Fsy17dkg_HZRJPonUA98uoaikMuwShLEH`
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`
       },
       body: JSON.stringify({
         from: 'Hopla <onboarding@resend.dev>', // Default testing domain
@@ -25,8 +25,8 @@ export async function POST(request: Request) {
               <p><strong>Total estimé :</strong> ${(parseFloat(total) + deliveryFee).toFixed(2)}€</p>
               <p><strong>Articles :</strong> ${items.length}</p>
             </div>
-
-            <a href="https://hopla-one.vercel.app/tracking/${trackingId}" style="background: #007AFF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+ 
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL}/tracking/${trackingId}" style="background: #007AFF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
               Suivre ma commande
             </a>
             
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
         `
       })
     });
+
 
     if (!res.ok) {
         const errorData = await res.json();

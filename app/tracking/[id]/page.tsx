@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { MessageCircle, MapPin, Package, Clock, ShieldCheck } from 'lucide-react';
+import JobChat from '../../components/JobChat';
 
 export default function MinimalTrackingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     const fetchJob = async () => {
       try {
-        const res = await fetch('/api/jobs');
-        const jobs = await res.json();
-        const foundJob = jobs.find((j: any) => j.id === params.id);
+        const res = await fetch(`/api/jobs?id=${params.id}`);
+        if (!res.ok) throw new Error('Job not found');
+        const foundJob = await res.json();
         setJob(foundJob);
       } catch (e) {
         console.error(e);
@@ -102,7 +105,9 @@ export default function MinimalTrackingPage({ params }: { params: { id: string }
         return { emoji: '🔍', text: 'Recherche de livreur...', color: '#007AFF' };
       case 'taken':
         return { emoji: '🚗', text: 'Livreur en route', color: '#34c759' };
-      case 'delivered':
+      case 'delivering':
+        return { emoji: '📦', text: 'Livraison en cours', color: '#34c759' };
+      case 'completed':
         return { emoji: '✅', text: 'Livré !', color: '#34c759' };
       case 'cancelled':
         return { emoji: '❌', text: 'Annulé', color: '#ff3b30' };
@@ -199,24 +204,46 @@ export default function MinimalTrackingPage({ params }: { params: { id: string }
           </div>
         </div>
 
+        {/* Floating Chat Button */}
+        {job.status !== 'open' && job.status !== 'cancelled' && job.status !== 'completed' && (
+          <button 
+            onClick={() => setShowChat(true)}
+            style={{
+              position: 'fixed', bottom: '100px', right: '24px',
+              width: '60px', height: '60px', borderRadius: '50%',
+              background: '#007AFF', color: 'white', border: 'none',
+              boxShadow: '0 8px 30px rgba(0,122,255,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, cursor: 'pointer'
+            }}
+          >
+            <MessageCircle size={28} />
+          </button>
+        )}
+
         {/* Actions */}
         <button 
           onClick={() => router.push('/')}
           style={{
             width: '100%',
             padding: '18px',
-            background: '#f5f5f7',
+            background: 'white',
             color: '#1d1d1f',
             border: 'none',
             borderRadius: '16px',
             fontSize: '17px',
             fontWeight: '600',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
           }}
         >
           Retour à l'accueil
         </button>
       </div>
+
+      {showChat && (
+        <JobChat jobId={params.id} role="client" onClose={() => setShowChat(false)} />
+      )}
     </div>
   );
 }

@@ -19,29 +19,32 @@ function SearchingContent() {
 
     const checkJobExists = async () => {
       try {
-        const res = await fetch('/api/jobs');
-        const jobs = await res.json();
-        const jobExists = jobs.some((j: any) => j.id === jobId);
+        const res = await fetch(`/api/jobs?id=${jobId}`);
         
-        if (jobExists) {
-          console.log('Job found, redirecting to tracking');
-          router.push(`/tracking/${jobId}`);
-        } else {
-          attempts++;
-          if (attempts < maxAttempts) {
-            console.log(`Job not found yet, attempt ${attempts}/${maxAttempts}`);
-            setTimeout(checkJobExists, 500);
-          } else {
-            console.error('Job not found after max attempts');
-            alert('Erreur: Commande introuvable');
-            router.push('/');
+        if (res.ok) {
+          const job = await res.json();
+          if (job && job.id === jobId) {
+            console.log('Job found, redirecting to tracking');
+            router.push(`/tracking/${jobId}`);
+            return;
           }
+        }
+        
+        attempts++;
+        if (attempts < maxAttempts) {
+          console.log(`Job not found yet, attempt ${attempts}/${maxAttempts}`);
+          setTimeout(checkJobExists, 500);
+        } else {
+          console.error('Job not found after max attempts');
+          alert('Erreur: Commande introuvable');
+          router.push('/');
         }
       } catch (error) {
         console.error('Error checking job:', error);
         router.push('/');
       }
     };
+
 
     // Start checking after 1 second
     const timer = setTimeout(checkJobExists, 1000);
