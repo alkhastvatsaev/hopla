@@ -26,6 +26,11 @@ export default function TrackingPage() {
   const [inputMsg, setInputMsg] = useState('');
   const chatEndRef = useRef<any>(null);
   const hasGreeted = useRef(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     fetchJob();
@@ -111,7 +116,12 @@ export default function TrackingPage() {
     }
   };
 
-  if (loading) return null;
+  if (!mounted) return null; // Avoid Hydration mismatch
+  if (loading) return (
+     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', color: '#86868b' }}>
+       Chargement...
+     </div>
+  );
 
   const getStatusLabel = () => {
     switch(job?.status) {
