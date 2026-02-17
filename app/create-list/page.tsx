@@ -26,6 +26,7 @@ export default function CreateListing() {
 
   const [submitting, setSubmitting] = useState(false);
   const [budget, setBudget] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
 
   // Auto-locate on mount (with Safari safety)
   useEffect(() => {
@@ -214,9 +215,11 @@ export default function CreateListing() {
           locationCoords: finalLocationCoords,
           pickupLocation: isColis ? pickupLocation : null,
           pickupCoords: isColis ? finalPickupCoords : null,
+          pickupCoords: isColis ? finalPickupCoords : null,
           reward: totalReward,
           deliveryFee,
           tip,
+          paymentMethod, // Add payment method to job data
           user: `Client #${Math.floor(Math.random() * 1000)}` 
         }),
       });
@@ -601,27 +604,47 @@ export default function CreateListing() {
             </div>
 
 
-            <div style={{ marginTop: '10px' }}>
-                <div style={{ background: '#f5f5f7', padding: '16px', borderRadius: '16px', display: 'inline-flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
-                  <div style={{ width: '40px', height: '40px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                    <ShieldCheck size={20} color="#34c759" /> 
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1d1d1f' }}>Empreinte Bancaire</div>
-                    <div style={{ fontSize: '12px', color: '#86868b' }}>
-                      Aucun débit immédiat • ~{(parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)}€ bloqués temporairement
-                    </div>
                   </div>
                 </div>
 
+              {/* PAYMENT TOGGLE */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                 <button onClick={() => setPaymentMethod('card')} style={{
+                   flex: 1, padding: '16px', borderRadius: '16px', border: '1px solid',
+                   borderColor: paymentMethod === 'card' ? '#007AFF' : '#e5e5ea',
+                   background: paymentMethod === 'card' ? '#f5faff' : 'white',
+                   color: paymentMethod === 'card' ? '#007AFF' : '#1d1d1f',
+                   fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                 }}>
+                   <CreditCard size={18} /> Carte Web
+                 </button>
+                 <button onClick={() => setPaymentMethod('cash')} style={{
+                   flex: 1, padding: '16px', borderRadius: '16px', border: '1px solid',
+                   borderColor: paymentMethod === 'cash' ? '#34c759' : '#e5e5ea',
+                   background: paymentMethod === 'cash' ? '#f2fcf5' : 'white',
+                   color: paymentMethod === 'cash' ? '#34c759' : '#1d1d1f',
+                   fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                 }}>
+                   <Wallet size={18} /> Espèces
+                 </button>
+              </div>
+
               <div style={{ paddingBottom: '100px' }}>
-                <StripePayment 
-                  amount={parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2))}
-                  onSuccess={() => handlePost()}
-                />
+                {paymentMethod === 'card' ? (
+                  <StripePayment 
+                    amount={parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2))}
+                    onSuccess={() => handlePost()}
+                  />
+                ) : (
+                  <button onClick={handlePost} style={{
+                    width: '100%', background: '#34c759', color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
+                    fontSize: '17px', fontWeight: '700', boxShadow: '0 4px 12px rgba(52, 199, 89, 0.3)'
+                  }}>
+                    Payer {parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)).toFixed(2)}€ à la livraison
+                  </button>
+                )}
               </div>
             </div>
-          </>
         )}
       </div>
 
