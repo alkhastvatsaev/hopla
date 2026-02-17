@@ -3,6 +3,12 @@
 
 import Link from 'next/link';
 import { ShoppingBag, Truck } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const TrackingMap = dynamic(() => import('./components/TrackingMap'), { 
+  ssr: false,
+  loading: () => <div />
+});
 
 export default function Home() {
   return (
@@ -19,6 +25,20 @@ export default function Home() {
       overflow: 'hidden'
     }}>
       
+      {/* Dynamic Background Map */}
+      <div style={{
+        position: 'absolute',
+        top: 0, left: 0, width: '100%', height: '100%',
+        zIndex: 0, opacity: 0.6, filter: 'grayscale(100%) opacity(0.5)'
+      }}>
+         <TrackingMap status="open" clientCoords={undefined} />
+         {/* Overlay gradient for aesthetics */}
+         <div style={{
+           position: 'absolute', inset: 0,
+           background: 'linear-gradient(to bottom, rgba(245,245,247,0.8), rgba(245,245,247,0.4), rgba(245,245,247,0.8))'
+         }}></div>
+      </div>
+
       {/* Header with high-end Livreur access */}
       <div style={{
         position: 'absolute',
@@ -28,7 +48,7 @@ export default function Home() {
       }}>
         <Link href="/jobs" style={{ textDecoration: 'none' }}>
           <div className="hover-scale" style={{
-            background: 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             width: '60px',
@@ -39,9 +59,10 @@ export default function Home() {
             justifyContent: 'center',
             boxShadow: '0 10px 40px rgba(0,0,0,0.06)',
             border: '1px solid rgba(255,255,255,0.4)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'transform 0.2s'
           }}>
-            <Truck size={22} color="#1d1d1f" strokeWidth={1.2} />
+            <Truck size={22} color="#1d1d1f" strokeWidth={1.5} />
           </div>
         </Link>
       </div>
@@ -66,7 +87,7 @@ export default function Home() {
       </div>
 
       {/* Centered COMMANDER Button */}
-      <Link href="/create-list" style={{ textDecoration: 'none', width: '100%', maxWidth: '300px' }}>
+      <Link href="/create-list" style={{ textDecoration: 'none', width: '100%', maxWidth: '300px', zIndex: 10 }}>
         <div className="animate-float" style={{
           aspectRatio: '1',
           width: '100%',
@@ -110,18 +131,12 @@ export default function Home() {
         </div>
       </Link>
 
-      {/* Background Decor Elements */}
       <div style={{
-        position: 'absolute',
-        bottom: '-10%',
-        left: '-10%',
-        width: '40%',
-        height: '40%',
-        background: 'linear-gradient(135deg, #00C6FF20 0%, #0072FF10 100%)',
-        borderRadius: '50%',
-        filter: 'blur(80px)',
-        zIndex: -1
-      }}></div>
+        position: 'absolute', bottom: '30px', left: 0, right: 0, textAlign: 'center', zIndex: 5,
+        color: '#86868b', fontSize: '13px', fontWeight: '500'
+      }}>
+        Des livreurs actifs autour de vous
+      </div>
 
     </div>
   );
