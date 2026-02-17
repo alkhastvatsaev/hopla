@@ -46,7 +46,7 @@ export default function CreateListing() {
       const toClient = Math.random() * (4.5 - 1.5) + 1.5;
       setDist(parseFloat((toStore + toClient).toFixed(1)));
     }
-  }, [stage, dist]);
+  }, [stage]); // Removed 'dist' from dependencies to prevent infinite loop
 
   const deliveryFee = useMemo(() => {
     const base = 4.00; // Légèrement plus haut pour l'effort initial
