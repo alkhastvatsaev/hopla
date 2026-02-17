@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp } from 'lucide-react';
+import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw } from 'lucide-react';
 import { PRICE_DB } from '../lib/db';
 import StripePayment from '../components/StripePayment';
 
@@ -167,6 +167,7 @@ export default function CreateListing() {
   };
 
   const handlePost = async () => {
+    if (submitting) return; // Prevent double submission
     setSubmitting(true);
     let finalLocationCoords = locationCoords;
     let finalPickupCoords = pickupCoords;
@@ -616,6 +617,21 @@ export default function CreateListing() {
             }}>
             Suivant
           </button>
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {submitting && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.8)', zIndex: 9999,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)'
+        }}>
+           <RefreshCw className="spin" size={40} color="#007AFF" />
+           <div style={{ marginTop: '16px', fontWeight: '600', color: '#1d1d1f' }}>Création de votre commande...</div>
+           <style jsx>{`
+             .spin { animation: spin 1s linear infinite; }
+             @keyframes spin { 100% { transform: rotate(360deg); } }
+           `}</style>
         </div>
       )}
 
