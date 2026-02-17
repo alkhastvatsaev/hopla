@@ -216,6 +216,29 @@ export default function CreateListing() {
       });
       if (!res.ok) throw new Error(`Post job error: ${res.status}`);
       const newJob = await res.json();
+      
+      // Save last order ID to local storage for recovery
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastOrderId', newJob.id);
+      }
+
+      // Send confirmation email
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'alkhastvatsaev@gmail.com', // Using user provided email for now
+            trackingId: newJob.id,
+            deliveryFee: deliveryFee,
+            total: totalReward, // This is technically reward but used as total estimate proxy here
+            items: items
+          })
+        });
+      } catch (emailErr) {
+        console.warn("Email failed but order created", emailErr);
+      }
+
       router.push(`/tracking/${newJob.id}`); 
     } catch (error) {
       console.error(error);
