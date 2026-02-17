@@ -10,7 +10,13 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputTicket, setInputTicket] = useState<{ [key: string]: string }>({});
+  const [photoProof, setPhotoProof] = useState<{ [key: string]: boolean }>({});
   const [showAccounting, setShowAccounting] = useState(false);
+
+  const playSound = (type: 'success' | 'new') => {
+    const audio = new Audio(type === 'success' ? '/sounds/success.mp3' : '/sounds/notify.mp3'); // Paths to be created or simulated
+    audio.play().catch(e => console.log('Audio play failed', e)); 
+  };
 
   const fetchJobs = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -49,6 +55,7 @@ export default function JobsPage() {
       }
 
       if (!res.ok) throw new Error('Failed to accept job');
+      // playSound('new'); // Optional: sound when taking a job
       fetchJobs(); 
     } catch (e) {
       console.error(e);
@@ -327,9 +334,45 @@ export default function JobsPage() {
                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#86868b' }}>Total Client (Ticket + Pourboire)</div>
                              <div style={{ fontSize: '17px', fontWeight: '800', color: '#1d1d1f' }}>{job.totalToCollect}€</div>
                           </div>
-                          <button onClick={(e) => completeJob(job.id, e)} style={{
-                            width: '100%', background: '#34c759', color: 'white', border: 'none', borderRadius: '16px', padding: '16px', fontWeight: '700', fontSize: '16px'
-                          }}>Confirmer la Livraison</button>
+                          
+                          {/* Photo Proof Section */}
+                          {!photoProof[job.id] ? (
+                             <div onClick={() => {
+                               // Simulate camera opening
+                               if(confirm("Ouvrir l'appareil photo pour la preuve de livraison ?")) {
+                                  setTimeout(() => {
+                                     setPhotoProof({...photoProof, [job.id]: true});
+                                  }, 1000);
+                               }
+                             }} style={{
+                               border: '2px dashed #d2d2d7', borderRadius: '16px', padding: '20px', textAlign: 'center', cursor: 'pointer',
+                               color: '#86868b', fontSize: '14px', background: '#f9f9f9'
+                             }}>
+                                <Camera size={24} style={{ marginBottom: '8px', display: 'block', margin: '0 auto 8px' }} />
+                                Preuve de dépôt (Photo)
+                             </div>
+                          ) : (
+                             <div style={{
+                               background: '#e4f9e9', border: '1px solid #34c759', borderRadius: '16px', padding: '12px',
+                               display: 'flex', alignItems: 'center', gap: '10px', color: '#34c759', fontWeight: '600', fontSize: '14px'
+                             }}>
+                                <div style={{width: '24px', height: '24px', background: '#34c759', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                </div>
+                                Photo ajoutée
+                             </div>
+                          )}
+
+                          <button 
+                            disabled={!photoProof[job.id]}
+                            onClick={(e) => completeJob(job.id, e)} 
+                            style={{
+                              width: '100%', background: photoProof[job.id] ? '#34c759' : '#d2d2d7', 
+                              color: 'white', border: 'none', borderRadius: '16px', padding: '16px', fontWeight: '700', fontSize: '16px',
+                              transition: 'background 0.3s'
+                          }}>
+                            Confirmer la Livraison
+                          </button>
                         </div>
                       )}
                    </div>
