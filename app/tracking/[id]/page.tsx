@@ -97,6 +97,19 @@ export default function TrackingPage() {
       console.error("Error sending message: ", e);
     }
   };
+  const cancelJob = async () => {
+    if (!confirm('Êtes-vous sûr de vouloir annuler cette commande ?')) return;
+    try {
+      await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: params.id, status: 'cancelled' }),
+      });
+      router.push('/');
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   if (loading) return null;
 
@@ -145,6 +158,18 @@ export default function TrackingPage() {
             <ArrowLeft size={20} />
           </button>
         </div>
+
+        {/* Cancel Button (Top Right) */}
+        {job?.status !== 'completed' && job?.status !== 'delivered' && job?.status !== 'cancelled' && (
+          <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 10 }}>
+            <button onClick={cancelJob} style={{
+              background: 'white', border: 'none', borderRadius: '20px', padding: '8px 16px',
+              fontWeight: '600', fontSize: '13px', color: '#ff3b30', boxShadow: '0 2px 12px rgba(0,0,0,0.1)'
+            }}>
+              Annuler
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tracking Info Card */}
