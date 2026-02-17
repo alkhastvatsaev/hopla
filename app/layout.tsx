@@ -1,5 +1,5 @@
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import TabBar from './components/TabBar';
 import SupportChat from './components/SupportChat';
@@ -7,7 +7,14 @@ import SupportChat from './components/SupportChat';
 export const metadata: Metadata = {
   title: 'Hopla - Vos courses à Strasbourg',
   description: 'Faites-vous livrer par vos voisins en un clin d\'œil.',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
