@@ -9,15 +9,42 @@ function SearchingContent() {
   const jobId = searchParams.get('jobId');
 
   useEffect(() => {
-    // Attendre 3 secondes puis rediriger vers tracking
-    const timer = setTimeout(() => {
-      if (jobId) {
-        router.push(`/tracking/${jobId}`);
-      } else {
+    if (!jobId) {
+      router.push('/');
+      return;
+    }
+
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const checkJobExists = async () => {
+      try {
+        const res = await fetch('/api/jobs');
+        const jobs = await res.json();
+        const jobExists = jobs.some((j: any) => j.id === jobId);
+        
+        if (jobExists) {
+          console.log('Job found, redirecting to tracking');
+          router.push(`/tracking/${jobId}`);
+        } else {
+          attempts++;
+          if (attempts < maxAttempts) {
+            console.log(`Job not found yet, attempt ${attempts}/${maxAttempts}`);
+            setTimeout(checkJobExists, 500);
+          } else {
+            console.error('Job not found after max attempts');
+            alert('Erreur: Commande introuvable');
+            router.push('/');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking job:', error);
         router.push('/');
       }
-    }, 3000);
+    };
 
+    // Start checking after 1 second
+    const timer = setTimeout(checkJobExists, 1000);
     return () => clearTimeout(timer);
   }, [jobId, router]);
 
