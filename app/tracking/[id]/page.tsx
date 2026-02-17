@@ -106,9 +106,19 @@ export default function TrackingPage() {
       case 'taken': return 'Courses en cours';
       case 'delivering': return 'Livraison en cours';
       case 'completed': return 'Livraison terminée';
+      case 'delivered': return 'Livraison terminée';
       default: return 'Statut inconnu';
     }
   };
+
+  const [selectedTip, setSelectedTip] = useState<number | null>(null);
+  const [showTipModal, setShowTipModal] = useState(false);
+
+  useEffect(() => {
+     if (job?.status === 'delivered') {
+        setShowTipModal(true);
+     }
+  }, [job?.status]);
 
   const stepIndex = job?.status === 'open' ? 0 : job?.status === 'taken' ? 1 : 2;
 
@@ -262,8 +272,56 @@ export default function TrackingPage() {
           </div>
         </div>
       )}
+      {/* TIP MODAL */}
+      {showTipModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+        }}>
+           <div style={{
+             background: 'white', width: '100%', maxWidth: '500px', borderTopLeftRadius: '24px', borderTopRightRadius: '24px',
+             padding: '32px 24px', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+           }}>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '8px' }}>Livraison Terminée !</h2>
+                <p style={{ color: '#86868b', fontSize: '16px' }}>Votre commande a été livrée avec succès.<br/>Souhaitez-vous remercier {job?.driverName || 'le livreur'} ?</p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '32px' }}>
+                 {[0, 2, 5, 10].map(val => (
+                   <button key={val} onClick={() => setSelectedTip(val)} style={{
+                     padding: '16px 0', borderRadius: '16px', border: '1px solid',
+                     borderColor: selectedTip === val ? '#007AFF' : '#d2d2d7',
+                     background: selectedTip === val ? '#f5faff' : 'white',
+                     color: selectedTip === val ? '#007AFF' : '#1d1d1f',
+                     fontWeight: '700', fontSize: '16px', transition: 'all 0.2s'
+                   }}>
+                     {val === 0 ? 'Non' : `${val}€`}
+                   </button>
+                 ))}
+              </div>
+
+              <button onClick={() => {
+                setShowTipModal(false);
+                // Here we would ideally call API to update tip
+                setTimeout(() => router.push('/'), 500); 
+              }} style={{
+                width: '100%', background: '#007AFF', color: 'white', border: 'none', borderRadius: '16px',
+                padding: '18px', fontSize: '17px', fontWeight: '700'
+              }}>
+                Valider
+              </button>
+           </div>
+        </div>
+      )}
+
 
       <style jsx global>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
         @keyframes pulse {
           0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4); }
           70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(0, 122, 255, 0); }
