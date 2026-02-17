@@ -2,7 +2,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import TabBar from './components/TabBar';
-import SupportChat from './components/SupportChat';
 
 export const metadata: Metadata = {
   title: 'Hopla - Vos courses à Strasbourg',
@@ -22,7 +21,6 @@ export default function RootLayout({
       </head>
       <body>
         <main>{children}</main>
-        <SupportChat />
       </body>
     </html>
   );
