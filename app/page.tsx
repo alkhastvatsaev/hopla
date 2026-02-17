@@ -138,6 +138,17 @@ export default function Home() {
         Des livreurs actifs autour de vous
       </div>
 
+      <style jsx global>{`
+        body {
+          overflow: hidden;
+          width: 100vw;
+          height: 100vh;
+          position: fixed;
+        }
+        .leaflet-control-attribution {
+          display: none !important;
+        }
+      `}</style>
     </div>
   );
 }
