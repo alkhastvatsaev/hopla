@@ -101,6 +101,21 @@ export default function JobsPage() {
     return completedJobs.reduce((acc, j) => acc + parseFloat(j.reward.replace('€', '').replace(',', '.')), 0).toFixed(2);
   }, [completedJobs]);
 
+  const cancelJob = async (id: string, e: any) => {
+    e.stopPropagation();
+    if (!confirm('Êtes-vous sûr de vouloir annuler cette mission ? Elle sera remise en ligne.')) return;
+    try {
+      await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'open' }),
+      });
+      fetchJobs();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const earningsByDay = useMemo(() => {
     // Mock simulation: split completed jobs into today and yesterday
     const today = completedJobs.slice(0, Math.ceil(completedJobs.length / 2));
@@ -221,12 +236,24 @@ export default function JobsPage() {
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                             <div style={{fontSize: '15px', color: '#86868b'}}>{job.user}</div>
-                            <button onClick={() => alert("Ouverture du chat avec le client...")} style={{
-                              background: '#f2f2f7', border: 'none', borderRadius: '50%', width: '38px', height: '38px',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#007AFF'
-                            }}>
-                               <MessageCircle size={18} />
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button onClick={(e) => cancelJob(job.id, e)} style={{
+                                background: '#fef2f2', border: 'none', borderRadius: '50%', width: '38px', height: '38px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff3b30'
+                              }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                              </button>
+                              {/* Chat Button */}
+                              <button onClick={() => alert("Ouverture du chat avec le client...")} style={{
+                                background: '#f2f2f7', border: 'none', borderRadius: '50%', width: '38px', height: '38px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#007AFF'
+                              }}>
+                                <MessageCircle size={18} />
+                              </button>
+                            </div>
                           </div>
                           
                           {job.type === 'colis' ? (
