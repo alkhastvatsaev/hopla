@@ -248,7 +248,7 @@ export default function CreateListing() {
         console.warn("Email failed but order created", emailErr);
       }
 
-      router.push(`/tracking/${newJob.id}`); 
+      router.push(`/searching?jobId=${newJob.id}`); 
     } catch (error) {
       console.error(error);
       alert("Erreur lors de l'envoi");
