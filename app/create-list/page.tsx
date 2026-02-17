@@ -525,7 +525,9 @@ export default function CreateListing() {
                     </div>
                     <div>
                       <div style={{ fontSize: '13px', color: '#86868b', fontWeight: '600' }}>Estimation</div>
-                      <div style={{ fontSize: '18px', fontWeight: '800', color: '#1d1d1f' }}>25 - 40 min</div>
+                      <div style={{ fontSize: '18px', fontWeight: '800', color: '#1d1d1f' }}>
+                        {dist === 0 ? '25 - 40' : Math.ceil(15 + (dist * 4))} - {dist === 0 ? '40' : Math.ceil(30 + (dist * 4))} min
+                      </div>
                     </div>
                  </div>
                  <div style={{ textAlign: 'right' }}>
@@ -559,29 +561,38 @@ export default function CreateListing() {
               <div style={{ background: '#f5f5f7', borderRadius: '16px', padding: '16px' }}>
                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontSize: '14px', fontWeight: '500' }}>Votre commande</span>
-                    <span style={{ fontSize: '14px', fontWeight: '700' }}>{isColis ? 'Colis' : `${items.length} articles`}</span>
+                    <span style={{ fontSize: '14px', fontWeight: '500' }}>{isColis ? 'Colis' : `${items.length} articles`}</span>
                  </div>
                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontSize: '14px', fontWeight: '500' }}>Frais de livraison</span>
-                    <span style={{ fontSize: '14px', fontWeight: '700' }}>{deliveryFee.toFixed(2)}€</span>
+                     <span style={{ fontSize: '14px', fontWeight: '500' }}>{deliveryFee.toFixed(2)}€</span>
                  </div>
-                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '14px', fontWeight: '500' }}>Pourboire</span>
-                    <span style={{ fontSize: '14px', fontWeight: '700', color: tip > 0 ? '#34c759' : '#1d1d1f' }}>{tip === 0 ? '-' : `+${tip.toFixed(2)}€`}</span>
-                 </div>
+                 {tip > 0 && (
+                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '500' }}>Pourboire</span>
+                      <span style={{ fontSize: '14px', fontWeight: '500', color: '#34c759' }}>+{tip.toFixed(2)}€</span>
+                   </div>
+                 )}
               </div>
             </div>
 
             <div style={{ marginBottom: '32px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '12px' }}>Remercier le livreur (Optionnel)</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+              <div 
+                onClick={() => {
+                   const el = document.getElementById('tip-section');
+                   if(el) el.style.display = el.style.display === 'none' ? 'grid' : 'none';
+                }}
+                style={{ fontSize: '13px', fontWeight: '600', color: '#86868b', textTransform: 'uppercase', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <TrendingUp size={14} /> Ajouter un pourboire (Optionnel)
+              </div>
+              <div id="tip-section" style={{ display: 'none', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                 {[0, 2, 5, 10].map(val => (
                   <button key={val} onClick={() => setTip(val)} style={{
                     padding: '12px 0', borderRadius: '12px', border: '1px solid',
                     borderColor: tip === val ? '#007AFF' : '#d2d2d7',
                     background: tip === val ? '#f5faff' : 'white',
                     color: tip === val ? '#007AFF' : '#1d1d1f',
-                    fontSize: '14px', fontWeight: '700', transition: 'all 0.2s'
+                    fontSize: '14px', fontWeight: '600', transition: 'all 0.2s'
                   }}>
                     {val === 0 ? 'Non' : `+${val}€`}
                   </button>
