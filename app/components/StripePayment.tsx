@@ -11,11 +11,12 @@ import {
 } from '@stripe/react-stripe-js';
 
 // Initialize Stripe (use your publishable key here)
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
 
 interface CheckoutFormProps {
   amount: number;
-  onSuccess: () => void;
+  onSuccess: () => Promise<void> | void;
 }
 
 function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
@@ -23,6 +24,7 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
   const elements = useElements();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -30,11 +32,12 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
     if (!stripe || !elements) return;
 
     setLoading(true);
+    setErrorMessage(null);
 
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        // Just return to home for now to avoid redirects to non-existent pages that might 404
+        // Just return to home for now as state recovery is complex
         return_url: `${window.location.origin}`,
       },
       redirect: 'if_required'
@@ -45,9 +48,30 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
       setLoading(false);
     } else {
       // Payment successful
-      onSuccess();
+      setPaymentSuccess(true);
+      try {
+        await onSuccess();
+        // If navigation happens, we won't reach here. 
+        // If we do, keep success state but loading false?
+        // Actually, if we are here, it means onSuccess finished without navigating.
+        // But usually onSuccess should navigate.
+      } catch (err) {
+        setPaymentSuccess(false);
+        setErrorMessage("Le paiement a réussi mais la commande n'a pas pu être créée. Contactez le support.");
+        setLoading(false);
+      }
     }
   };
+
+  if (paymentSuccess) {
+    return (
+      <div style={{ textAlign: 'center', padding: '20px', color: '#34c759' }}>
+        <div style={{ fontSize: '24px', marginBottom: '8px' }}>✅</div>
+        <div style={{ fontWeight: '700' }}>Paiement réussi</div>
+        <div style={{ fontSize: '14px', color: '#86868b', marginTop: '4px' }}>Finalisation de la commande...</div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} style={{ width: '100%' }}>
@@ -59,7 +83,7 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
           width: '100%', background: '#007AFF',
           color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
           fontSize: '17px', fontWeight: '700', transition: 'all 0.3s',
-          marginTop: '24px', opacity: loading ? 0.7 : 1
+          marginTop: '24px', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer'
         }}
       >
         {loading ? 'Traitement...' : `Payer ${amount.toFixed(2)}€`}
@@ -109,9 +133,21 @@ export default function StripePayment({ amount, onSuccess }: StripePaymentProps)
     return (
       <div style={{ textAlign: 'center', padding: '32px 20px', background: '#fff5f5', borderRadius: '24px', border: '1px solid #fee2e2' }}>
         <div style={{ fontSize: '32px', marginBottom: '16px' }}>⚠️</div>
-        <div style={{ fontWeight: '700', color: '#b91c1c', marginBottom: '8px' }}>Erreur de configuration</div>
-        <div style={{ fontSize: '14px', color: '#dc2626', marginBottom: '12px' }}>{errorMessage}</div>
-        <div style={{ fontSize: '12px', color: '#ef4444' }}>Veuillez vérifier vos clés Stripe dans le fichier .env</div>
+        <div style={{ fontWeight: '700', color: '#b91c1c', marginBottom: '8px' }}>Problème de Configuration</div>
+        <div style={{ fontSize: '14px', color: '#dc2626', marginBottom: '16px', lineHeight: '1.4' }}>{errorMessage}</div>
+        <div style={{ fontSize: '13px', color: '#666', background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #eee' }}>
+          💡 <b>Action requise :</b> Vérifiez que vos clés Stripe sont bien configurées dans Vercel (Variables d'environnement) ou dans votre fichier .env.local localement.
+        </div>
+      </div>
+    );
+  }
+
+  if (!stripePromise) {
+    return (
+      <div style={{ textAlign: 'center', padding: '32px 20px', background: '#fff5f5', borderRadius: '24px', border: '1px solid #fee2e2' }}>
+        <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔑</div>
+        <div style={{ fontWeight: '700', color: '#b91c1c', marginBottom: '8px' }}>Clé Publique Manquante</div>
+        <div style={{ fontSize: '14px', color: '#dc2626' }}>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY n'est pas définie.</div>
       </div>
     );
   }

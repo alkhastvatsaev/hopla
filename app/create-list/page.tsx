@@ -223,6 +223,9 @@ export default function CreateListing() {
     }
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -237,12 +240,16 @@ export default function CreateListing() {
           reward: totalReward,
           deliveryFee,
           tip,
-          paymentMethod, 
+          paymentMethod,
           isPaid: paymentMethod === 'card',
           totalAmount: parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)),
-          user: `Client #${Math.floor(Math.random() * 1000)}` 
+          user: `Client #${Math.floor(Math.random() * 1000)}`
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
       if (!res.ok) throw new Error(`Post job error: ${res.status}`);
       const newJob = await res.json();
       
@@ -271,8 +278,13 @@ export default function CreateListing() {
       router.push(`/tracking/${newJob.id}`); 
     } catch (error) {
       console.error(error);
-      alert("Erreur lors de l'envoi");
+      const message =
+        (error as any)?.name === 'AbortError'
+          ? "La requête a expiré. Vérifiez votre connexion et réessayez."
+          : "Erreur lors de l'envoi";
+      alert(message);
       setSubmitting(false);
+      throw error;
     }
   };
 
@@ -684,10 +696,15 @@ export default function CreateListing() {
                     onSuccess={() => handlePost()}
                   />
                 ) : (
-                  <button onClick={handlePost} style={{
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handlePost()}
+                    style={{
                     width: '100%', background: '#34c759', color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
                     fontSize: '17px', fontWeight: '700', boxShadow: '0 4px 12px rgba(52, 199, 89, 0.3)',
-                    cursor: 'pointer'
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.7 : 1
                   }}>
                     Payer {(estimatedTotal * (isColis ? 1 : 1.10) + deliveryFee + tip).toFixed(2)}€ à la livraison
                   </button>
