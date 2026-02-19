@@ -54,12 +54,7 @@ export async function POST(request: Request) {
       amount: Math.round(amount * 100),
       currency: "eur",
       metadata: { jobId },
-      capture_method: "manual",
-      payment_method_options: {
-        card: {
-          capture_method: "manual",
-        },
-      },
+      capture_method: "automatic",
       automatic_payment_methods: {
         enabled: true,
       },
