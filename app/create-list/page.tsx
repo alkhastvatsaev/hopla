@@ -226,6 +226,9 @@ export default function CreateListing() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
+      // Final check for reward calculation to ensure it's a valid string/value
+      const finalReward = typeof totalReward === 'string' ? totalReward : `${totalReward}€`;
+
       const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -237,7 +240,7 @@ export default function CreateListing() {
           pickupLocation: isColis ? pickupLocation : null,
           pickupCoords: isColis ? finalPickupCoords : null,
 
-          reward: totalReward,
+          reward: finalReward,
           deliveryFee,
           tip,
           paymentMethod,
@@ -250,7 +253,11 @@ export default function CreateListing() {
 
       clearTimeout(timeoutId);
 
-      if (!res.ok) throw new Error(`Post job error: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erreur lors de la création de la commande (${res.status})`);
+      }
+      
       const newJob = await res.json();
       
       // Save last order ID to local storage for recovery
@@ -258,33 +265,33 @@ export default function CreateListing() {
         localStorage.setItem('lastOrderId', newJob.id);
       }
 
-      // Send confirmation email
-      try {
-        await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'alkhastvatsaev@gmail.com', // Using user provided email for now
-            trackingId: newJob.id,
-            deliveryFee: deliveryFee,
-            total: totalReward, // This is technically reward but used as total estimate proxy here
-            items: items
-          })
-        });
-      } catch (emailErr) {
-        console.warn("Email failed but order created", emailErr);
-      }
+      // Send confirmation email (Fire and forget style - don't let it block the UI)
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'alkhastvatsaev@gmail.com',
+          trackingId: newJob.id,
+          deliveryFee: deliveryFee,
+          total: finalReward,
+          items: items
+        })
+      }).catch(emailErr => console.warn("Background email sending failed", emailErr));
 
+      // Immediate redirect
       router.push(`/tracking/${newJob.id}`); 
     } catch (error) {
-      console.error(error);
+      console.error("Order submission error:", error);
       const message =
         (error as any)?.name === 'AbortError'
           ? "La requête a expiré. Vérifiez votre connexion et réessayez."
-          : "Erreur lors de l'envoi";
+          : (error as Error).message || "Erreur lors de l'envoi";
       alert(message);
       setSubmitting(false);
-      throw error;
+      // Only throw if caller needs it (Stripe payment needs it)
+      if (paymentMethod === 'card') {
+        throw error;
+      }
     }
   };
 
