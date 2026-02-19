@@ -55,9 +55,10 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
         // If we do, keep success state but loading false?
         // Actually, if we are here, it means onSuccess finished without navigating.
         // But usually onSuccess should navigate.
-      } catch (err) {
+      } catch (err: any) {
+        console.error("Post-payment error:", err);
         setPaymentSuccess(false);
-        setErrorMessage("Le paiement a réussi mais la commande n'a pas pu être créée. Contactez le support.");
+        setErrorMessage(err.message || "Le paiement a réussi mais la commande n'a pas pu être créée.");
         setLoading(false);
       }
     }
