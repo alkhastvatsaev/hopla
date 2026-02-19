@@ -1,25 +1,47 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
 const getStripe = () => {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const rawKey = process.env.STRIPE_SECRET_KEY;
+  const key = rawKey?.trim();
+
   if (!key) {
-    console.error("STRIPE_SECRET_KEY is missing!");
+    console.error("STRIPE_SECRET_KEY is missing or empty!");
     throw new Error(
-      "STRIPE_SECRET_KEY is not defined in the environment variables.",
+      "La clé secrète Stripe (STRIPE_SECRET_KEY) est manquante dans les variables d'environnement.",
     );
   }
-  
-  if (key.startsWith('sk_test')) {
-    console.log("Using Stripe TEST key");
-  } else if (key.startsWith('sk_live')) {
-    console.log("Using Stripe LIVE key");
-  } else {
-    console.error("STRIPE_SECRET_KEY has an invalid format!");
+
+  if (rawKey && /[\r\n\t]/.test(rawKey)) {
+    console.error("STRIPE_SECRET_KEY contains invalid whitespace/control characters");
+    throw new Error(
+      "La clé secrète Stripe contient un caractère invalide (retour à la ligne / tabulation). Supprimez et recréez STRIPE_SECRET_KEY dans Vercel en collant la clé sur une seule ligne (sans guillemets).",
+    );
   }
 
-  // On utilise la dernière version stable supportée par le SDK
-  return new Stripe(key);
+  if (/\s/.test(key)) {
+    console.error("STRIPE_SECRET_KEY contains whitespace");
+    throw new Error(
+      "La clé secrète Stripe contient des espaces. Recollez la valeur sans espaces ni guillemets dans Vercel.",
+    );
+  }
+
+  if (!key.startsWith("sk_")) {
+    console.error("STRIPE_SECRET_KEY has an invalid format!");
+    throw new Error(
+      "La clé secrète Stripe a un format invalide (doit commencer par sk_).",
+    );
+  }
+
+  if (key.startsWith("sk_test")) {
+    console.log("Using Stripe TEST key");
+  } else if (key.startsWith("sk_live")) {
+    console.log("Using Stripe LIVE key");
+  }
+
+  return new Stripe(key, {
+    apiVersion: "2024-06-20" as any,
+  });
 };
 
 export async function POST(request: Request) {
@@ -29,13 +51,13 @@ export async function POST(request: Request) {
 
     // Create a PaymentIntent for the specified amount
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), 
+      amount: Math.round(amount * 100),
       currency: "eur",
       metadata: { jobId },
-      capture_method: 'manual', 
+      capture_method: "manual",
       payment_method_options: {
         card: {
-          capture_method: 'manual',
+          capture_method: "manual",
         },
       },
       automatic_payment_methods: {
@@ -47,11 +69,16 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error("Stripe Checkout Error:", err);
     // On renvoie un message plus descriptif si possible
-    const errorMessage = err.message || "Une erreur est survenue lors de l'initialisation du paiement";
-    return NextResponse.json({ 
-      error: errorMessage,
-      code: err.code,
-      type: err.type
-    }, { status: 500 });
+    const errorMessage =
+      err.message ||
+      "Une erreur est survenue lors de l'initialisation du paiement";
+    return NextResponse.json(
+      {
+        error: errorMessage,
+        code: err.code,
+        type: err.type,
+      },
+      { status: 500 },
+    );
   }
 }

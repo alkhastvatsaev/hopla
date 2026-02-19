@@ -1,6 +1,29 @@
 import { NextResponse } from 'next/server';
 import { getJobs, createJob, updateJob, getJob } from '../../lib/firebaseService';
 
+function sanitizeForFirestore(value: any): any {
+  if (value === undefined) return undefined;
+  if (typeof value === 'number' && Number.isNaN(value)) return null;
+  if (value === null) return null;
+
+  if (Array.isArray(value)) {
+    return value
+      .map(sanitizeForFirestore)
+      .filter((v) => v !== undefined);
+  }
+
+  if (typeof value === 'object') {
+    const out: any = {};
+    for (const [k, v] of Object.entries(value)) {
+      const sv = sanitizeForFirestore(v);
+      if (sv !== undefined) out[k] = sv;
+    }
+    return out;
+  }
+
+  return value;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -22,7 +45,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = sanitizeForFirestore(await request.json());
     
     // Validation basique
     if (!body.items && !body.pickupLocation) {
@@ -38,7 +61,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const body = await request.json();
+    const body = sanitizeForFirestore(await request.json());
     const { id, status, ...updates } = body;
 
     if (!id) {
@@ -63,7 +86,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Modification d\'adresse invisible une fois le livreur en route.' }, { status: 403 });
     }
 
-    await updateJob(id, { status, ...updates });
+    await updateJob(id, sanitizeForFirestore({ status, ...updates }));
     return NextResponse.json({ id, status, ...updates });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
