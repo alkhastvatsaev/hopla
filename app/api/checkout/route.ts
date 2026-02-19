@@ -4,13 +4,22 @@ import Stripe from 'stripe';
 const getStripe = () => {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
+    console.error("STRIPE_SECRET_KEY is missing!");
     throw new Error(
       "STRIPE_SECRET_KEY is not defined in the environment variables.",
     );
   }
-  return new Stripe(key, {
-    apiVersion: "2023-10-16" as any,
-  });
+  
+  if (key.startsWith('sk_test')) {
+    console.log("Using Stripe TEST key");
+  } else if (key.startsWith('sk_live')) {
+    console.log("Using Stripe LIVE key");
+  } else {
+    console.error("STRIPE_SECRET_KEY has an invalid format!");
+  }
+
+  // On utilise la dernière version stable supportée par le SDK
+  return new Stripe(key);
 };
 
 export async function POST(request: Request) {
@@ -36,7 +45,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err: any) {
-    console.error(err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Stripe Checkout Error:", err);
+    // On renvoie un message plus descriptif si possible
+    const errorMessage = err.message || "Une erreur est survenue lors de l'initialisation du paiement";
+    return NextResponse.json({ 
+      error: errorMessage,
+      code: err.code,
+      type: err.type
+    }, { status: 500 });
   }
 }
