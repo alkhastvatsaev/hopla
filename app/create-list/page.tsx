@@ -186,134 +186,121 @@ export default function CreateListing() {
   };
 
   const handlePost = async () => {
-    if (submitting) return; // Prevent double submission
+    if (submitting) return;
     setSubmitting(true);
+
     let finalLocationCoords = locationCoords;
     let finalPickupCoords = pickupCoords;
 
     // FORWARD GEOCODING FALLBACK
-    // If no coords (user typed address), try to resolve it before posting
     try {
       if (!finalLocationCoords && location) {
         const query = encodeURIComponent(location + ', Strasbourg');
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-        if (!res.ok) throw new Error(`Search API error: ${res.status}`);
-        const data = await res.json();
-        if (data && data[0]) {
-          finalLocationCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        if (res.ok) {
+           const data = await res.json();
+           if (data && data[0]) finalLocationCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         }
       }
       if (isColis && !finalPickupCoords && pickupLocation) {
         const query = encodeURIComponent(pickupLocation + ', Strasbourg');
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-        if (!res.ok) throw new Error(`Search API error: ${res.status}`);
-        const data = await res.json();
-        if (data && data[0]) {
-          finalPickupCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        if (res.ok) {
+           const data = await res.json();
+           if (data && data[0]) finalPickupCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         }
       }
     } catch (e) {
       console.warn("Geocoding failed, using fallback", e);
     }
 
-    // FINAL FALLBACK: Ensure we ALWAYS have valid coords to prevent crashes
-    // Default to Strasbourg Center if nothing found
-    if (!finalLocationCoords) {
-       finalLocationCoords = { lat: 48.5734, lng: 7.7521 };
-    }
+    // Default to Strasbourg Center if still nothing
+    if (!finalLocationCoords) finalLocationCoords = { lat: 48.5734, lng: 7.7521 };
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      // Calculate Total Amount Safe and Simple
+      const itemsTotal = items.reduce((acc, item) => acc + (item.price || 3), 0);
+      const serviceFee = isColis ? 0 : itemsTotal * 0.10;
+      const totalAmt = parseFloat((itemsTotal + serviceFee + deliveryFee + tip).toFixed(2));
+      const rewardStr = `${(deliveryFee + tip).toFixed(2)}€`;
 
-      // Final check for reward calculation to ensure it's a valid string/value
-      const finalReward = typeof totalReward === 'string' ? totalReward : `${totalReward}€`;
+      const payload = {
+        type: isColis ? 'colis' : 'courses',
+        items,
+        location,
+        locationCoords: finalLocationCoords,
+        pickupLocation: isColis ? pickupLocation : null,
+        pickupCoords: isColis ? finalPickupCoords : null,
+        reward: rewardStr,
+        deliveryFee,
+        tip,
+        paymentMethod,
+        isPaid: paymentMethod === 'card',
+        totalAmount: totalAmt, 
+        user: `Client #${Math.floor(Math.random() * 1000)}`
+      };
 
       let newJobId = null;
 
+      // ATTEMPT SERVER CREATION
       try {
         const res = await fetch('/api/jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: isColis ? 'colis' : 'courses',
-            items,
-            location,
-            locationCoords: finalLocationCoords,
-            pickupLocation: isColis ? pickupLocation : null,
-            pickupCoords: isColis ? finalPickupCoords : null,
-  
-            reward: finalReward,
-            deliveryFee,
-            tip,
-            paymentMethod,
-            isPaid: paymentMethod === 'card',
-            totalAmount: parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)),
-            user: `Client #${Math.floor(Math.random() * 1000)}`
-          }),
-          signal: controller.signal,
+          body: JSON.stringify(payload)
         });
-  
-        clearTimeout(timeoutId);
-  
+
         if (!res.ok) {
-           const errorData = await res.json().catch(() => ({}));
-           throw new Error(errorData.error || `Erreur lors de la création de la commande (${res.status})`);
+           const errData = await res.json().catch(() => ({}));
+           throw new Error(errData.error || `Erreur serveur (${res.status})`);
         }
         
-        const newJob = await res.json();
-        newJobId = newJob.id;
+        const data = await res.json();
+        newJobId = data.id;
 
-        // Send confirmation email (Fire and forget style)
-        fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'alkhastvatsaev@gmail.com',
-            trackingId: newJob.id,
-            deliveryFee: deliveryFee,
-            total: finalReward,
-            items: items
-          })
-        }).catch(emailErr => console.warn("Background email sending failed", emailErr));
-
-      } catch (apiError) {
-        console.error("API Error during job creation:", apiError);
-        // FORCE BYPASS FOR CASH PAYMENTS
+      } catch (serverError) {
+        console.error("Server Job Creation Failed:", serverError);
+        
+        // AUTO-FALLBACK FOR CASH ONLY
         if (paymentMethod === 'cash') {
-           console.warn("Forcing redirect for cash payment despite API error (Offline Mode Fallback)");
-           // Generate a temporary local ID if server failed
-           newJobId = `temp_${Date.now()}`;
-           // We can optionally store this "offline" job in localStorage to sync later, 
-           // but for now, we just want to show the tracking screen.
+           console.warn("Using offline fallback for cash payment.");
+           newJobId = `offline_${Date.now()}`;
+           // We could save payload to localStorage here for later sync
         } else {
-           throw apiError; // Re-throw for card payments as we can't fake a stripe success
+           throw serverError; // Card payments MUST happen on server
         }
       }
 
       if (newJobId) {
-        // Save last order ID to local storage for recovery
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('lastOrderId', newJobId);
-        }
-        // Immediate redirect
-        router.push(`/tracking/${newJobId}`); 
+         // Save ID for recovery
+         if (typeof window !== 'undefined') localStorage.setItem('lastOrderId', newJobId);
+
+         // Send Email (Fire & Forget) - only if we have a real ID or want to try anyway
+         if (!newJobId.startsWith('offline_')) {
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: 'alkhastvatsaev@gmail.com',
+                trackingId: newJobId,
+                deliveryFee: deliveryFee,
+                total: rewardStr,
+                items: items
+              })
+            }).catch(e => console.warn("Email error:", e));
+         }
+
+         // Redirect immediately
+         router.push(`/tracking/${newJobId}`);
       }
 
     } catch (error) {
-      console.error("Order submission critical error:", error);
-      const message =
-        (error as any)?.name === 'AbortError'
-          ? "La requête a expiré. Vérifiez votre connexion et réessayez."
-          : (error as Error).message || "Erreur lors de l'envoi";
-      
-      alert(message);
+      console.error("Critical submission error:", error);
+      alert((error as Error).message || "Une erreur est survenue.");
       setSubmitting(false);
       
-      // Only throw if caller needs it (Stripe payment needs it)
-      if (paymentMethod === 'card') {
-        throw error;
-      }
+      // If payment was card, let Stripe component handle it (rethrow)
+      if (paymentMethod === 'card') throw error;
     }
   };
 
