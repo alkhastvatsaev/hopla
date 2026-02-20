@@ -33,6 +33,43 @@ export default function CreateListing() {
   const [budget, setBudget] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
 
+  // STRIPE REDIRECT RECOVERY (3D SECURE)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const paymentIntent = params.get('payment_intent');
+      const redirectStatus = params.get('redirect_status');
+      
+      if (paymentIntent && redirectStatus === 'succeeded' && !submitting) {
+        setSubmitting(true);
+        const savedPayload = localStorage.getItem('hopla_pending_job');
+        if (savedPayload) {
+          try {
+            const payload = JSON.parse(savedPayload);
+            fetch('/api/jobs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }).then(r => r.json()).then(newJob => {
+              if (newJob?.id) {
+                localStorage.removeItem('hopla_pending_job');
+                window.location.href = `/tracking/${newJob.id}`;
+              } else {
+                setSubmitting(false); // allow retry
+              }
+            }).catch(e => {
+              console.error(e);
+              setSubmitting(false);
+            });
+          } catch(e) {
+            console.error(e);
+            setSubmitting(false);
+          }
+        }
+      }
+    }
+  }, []);
+
   const fetchAddresses = async (text: string, isPickup = false) => {
     if (isPickup) {
       setPickupLocation(text);
@@ -298,6 +335,11 @@ export default function CreateListing() {
         user: `Client #${Math.floor(Math.random() * 1000)}`
       };
 
+    // Save for Stripe 3D Secure redirect recovery (very important on mobile/Vercel)
+    if (typeof window !== 'undefined' && paymentMethod === 'card') {
+      localStorage.setItem('hopla_pending_job', JSON.stringify(payload));
+    }
+
     // Proceed With Payload
     const res = await fetch('/api/jobs', {
         method: 'POST',
@@ -310,6 +352,7 @@ export default function CreateListing() {
       // Save last order ID to local storage for recovery
       if (typeof window !== 'undefined') {
         localStorage.setItem('lastOrderId', newJob.id);
+        localStorage.removeItem('hopla_pending_job'); // We successfully returned without redirect loop
       }
 
       // Send confirmation email

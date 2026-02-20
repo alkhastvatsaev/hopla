@@ -39,7 +39,7 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
       elements,
       confirmParams: {
         // Just return to home for now as state recovery is complex
-        return_url: `${window.location.origin}`,
+        return_url: `${window.location.origin}/create-list?stripe_redirect=true`,
       },
       redirect: 'if_required'
     });
