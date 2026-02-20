@@ -281,7 +281,9 @@ export default function CreateListing() {
   };
 
   const handlePost = async () => {
-    if (submitting) return;
+    console.log("🔴 [handlePost] INITIATED", { submitting, items, location, paymentMethod });
+    
+    // Fallback: If it's maliciously stuck, we force it to proceed for this debug
     setSubmitting(true);
 
     let finalLocationCoords = locationCoords;
