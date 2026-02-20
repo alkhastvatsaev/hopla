@@ -906,6 +906,19 @@ export default function CreateListing() {
 
       <div style={{ textAlign: 'center', fontSize: '10px', color: '#ccc', padding: '10px' }}>v2.0 DEBUG MODE</div>
 
+      {/* BOUTON DEBUG POUR FORCER LE PASSAGE AU TRACKING */}
+      <div style={{ position: 'fixed', bottom: '80px', right: '20px', zIndex: 1000 }}>
+        <button 
+          onClick={() => router.push('/tracking/debug-123')}
+          style={{
+            padding: '10px 16px', background: '#FF9500', color: 'white', 
+            border: 'none', borderRadius: '12px', fontSize: '12px', fontWeight: '800',
+            boxShadow: '0 4px 12px rgba(255,149,0,0.3)', cursor: 'pointer'
+          }}
+        >
+          DEBUG: VOIR SUIVI (MODÈLE)
+        </button>
+      </div>
     </div>
   );
 }

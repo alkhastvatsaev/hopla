@@ -61,6 +61,28 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
   useEffect(() => {
     if (!jobId) return;
 
+    // MODE DEBUG: Charger des données fictives sans appeler Firebase
+    if (jobId === 'debug-123') {
+      setJob({
+        id: 'debug-123',
+        status: 'open',
+        type: 'courses',
+        items: [
+          { name: 'Papier toilette Lotus x12', price: 6.50 },
+          { name: 'Doliprane 1000mg tab', price: 2.15 }
+        ],
+        location: '17 Rue Sénèque, Strasbourg',
+        locationCoords: { lat: 48.5734, lng: 7.7521 },
+        reward: '7.50€',
+        deliveryFee: 4.50,
+        tip: 3.00,
+        totalAmount: 16.15,
+        paymentMethod: 'card'
+      });
+      setLoading(false);
+      return;
+    }
+
     // Use onSnapshot for real-time updates instead of polling
     const jobRef = doc(db, 'jobs', jobId);
     const unsubscribe = onSnapshot(jobRef, (snapshot) => {
