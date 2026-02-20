@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic';
 import { db } from '../../lib/firebase';
 import { doc, onSnapshot, collection, addDoc, query, orderBy, serverTimestamp, where } from 'firebase/firestore';
 import JobChat from '../../components/JobChat';
+import DeliveryRating from '../../components/DeliveryRating';
 
 const TrackingMap = dynamic(() => import('../../components/TrackingMap'), { 
   ssr: false,
@@ -37,6 +38,21 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
   const isUpdatingRef = useRef(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [isTipping, setIsTipping] = useState(false);
+  const [hasRated, setHasRated] = useState(false);
+  const [ratingStep, setRatingStep] = useState<'rate' | 'tip'>('rate');
+  const [eta, setEta] = useState(15); // Default 15 minutes
+
+  // Dynamic ETA adjustment based on status
+  useEffect(() => {
+    if (job?.status === 'taken') setEta(12);
+    if (job?.status === 'delivering') setEta(5);
+    
+    // Smooth countdown every 60 seconds
+    const interval = setInterval(() => {
+      setEta(prev => (prev > 1 ? prev - 1 : 1));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [job?.status]);
 
   useEffect(() => {
     setMounted(true);
@@ -44,6 +60,28 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     if (!jobId) return;
+
+    // MODE DEBUG: Charger des données fictives sans appeler Firebase
+    if (jobId === 'debug-123') {
+      setJob({
+        id: 'debug-123',
+        status: 'open',
+        type: 'courses',
+        items: [
+          { name: 'Papier toilette Lotus x12', price: 6.50 },
+          { name: 'Doliprane 1000mg tab', price: 2.15 }
+        ],
+        location: '17 Rue Sénèque, Strasbourg',
+        locationCoords: { lat: 48.5734, lng: 7.7521 },
+        reward: '7.50€',
+        deliveryFee: 4.50,
+        tip: 3.00,
+        totalAmount: 16.15,
+        paymentMethod: 'card'
+      });
+      setLoading(false);
+      return;
+    }
 
     // Use onSnapshot for real-time updates instead of polling
     const jobRef = doc(db, 'jobs', jobId);
@@ -63,6 +101,7 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
         // Auto-show tip modal if mission is finished
         if ((current.status === 'completed' || current.status === 'delivered') && !showTipModal) {
           setShowTipModal(true);
+          setRatingStep('rate');
         }
       }
       setLoading(false);
@@ -310,10 +349,22 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
           
           {/* Header Section */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-            <div>
-              <h1 style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '-0.5px', marginBottom: '4px' }}>
-                {getStatusLabel()}
-              </h1>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <h1 style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '-0.5px' }}>
+                  {getStatusLabel()}
+                </h1>
+                {['taken', 'delivering'].includes(job.status) && (
+                  <div style={{ 
+                    background: '#E8F5E9', padding: '4px 10px', borderRadius: '12px',
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    animation: 'pulse 2s infinite'
+                  }}>
+                    <div style={{ width: '6px', height: '6px', background: '#34C759', borderRadius: '50%' }}></div>
+                    <span style={{ color: '#248A3D', fontWeight: '700', fontSize: '13px' }}>~{eta} min</span>
+                  </div>
+                )}
+              </div>
               <p style={{ color: '#86868b', fontSize: '15px' }}>
                 {job.status === 'open' 
                   ? 'Nous prévenons les livreurs à proximité...' 
@@ -411,7 +462,43 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
               )}
             </div>
 
-            {/* 2. Delivery Address Cell */}
+            {/* 2. Pricing Breakdown */}
+            <div style={{
+              background: '#F9F9FB', borderRadius: '24px', padding: '16px',
+              border: '1px solid #F2F2F7'
+            }}>
+              <div style={{ fontSize: '12px', color: '#86868b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                Détail du prix
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {job.items && job.items.length > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                    <span style={{ color: '#86868b' }}>Panier estimé ({job.items.length} art.)</span>
+                    <span style={{ fontWeight: '600' }}>
+                      {job.items.reduce((acc: number, i: any) => acc + (typeof i === 'string' ? 0 : (i.price || 0) * (i.quantity || 1)), 0).toFixed(2)}€
+                    </span>
+                  </div>
+                )}
+                {job.deliveryFee != null && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                    <span style={{ color: '#86868b' }}>Frais de livraison</span>
+                    <span style={{ fontWeight: '600' }}>{Number(job.deliveryFee).toFixed(2)}€</span>
+                  </div>
+                )}
+                {job.tip > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                    <span style={{ color: '#86868b' }}>Pourboire</span>
+                    <span style={{ fontWeight: '600', color: '#34C759' }}>{Number(job.tip).toFixed(2)}€</span>
+                  </div>
+                )}
+                <div style={{ borderTop: '1px solid #E5E5EA', paddingTop: '8px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', fontSize: '16px' }}>
+                  <span style={{ fontWeight: '700' }}>Total</span>
+                  <span style={{ fontWeight: '800' }}>{job.totalAmount ? Number(job.totalAmount).toFixed(2) : job.reward}€</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Delivery Address Cell */}
             <div 
               style={{
                 background: '#F9F9FB',
@@ -498,7 +585,20 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
               </div>
             </div>
 
-            {/* 3. Driver Context (If taken) */}
+            {/* Delivery Proof (if available) */}
+            {job.deliveryProofUrl && (
+              <div style={{
+                background: '#F9F9FB', borderRadius: '24px', padding: '16px',
+                border: '1px solid #F2F2F7'
+              }}>
+                <div style={{ fontSize: '12px', color: '#86868b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                  Preuve de livraison
+                </div>
+                <img src={job.deliveryProofUrl} alt="Preuve" style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '16px' }} />
+              </div>
+            )}
+
+            {/* 4. Driver Context (If taken) */}
             {job.status !== 'open' && job.driverName && (
               <div style={{
                 background: '#F9F9FB',
@@ -527,7 +627,7 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
               </div>
             )}
 
-            {/* 4. Payment Context */}
+            {/* 5. Payment Context */}
             <div style={{
               background: '#F9F9FB',
               borderRadius: '24px',
@@ -593,10 +693,10 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
               background: 'white', width: '100%', maxWidth: '500px', 
               borderTopLeftRadius: '32px', borderTopRightRadius: '32px',
               padding: '40px 24px', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
-              textAlign: 'center'
+              maxHeight: '90vh', overflowY: 'auto'
             }}>
               {showThankYou ? (
-                <div className="animate-enter">
+                <div className="animate-enter" style={{ textAlign: 'center' }}>
                   <h2 style={{ fontSize: '26px', fontWeight: '800', marginBottom: '12px', marginTop: '20px' }}>Merci !</h2>
                   <p style={{ color: '#86868b', fontSize: '17px', lineHeight: '1.5', marginBottom: '32px' }}>
                     Votre commande est terminée. {selectedTip ? `Votre pourboire de ${selectedTip}€ a bien été transmis.` : ''}<br/>
@@ -610,15 +710,38 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
                       boxShadow: '0 10px 20px rgba(0, 122, 255, 0.2)'
                     }}
                   >
-                    Retour à l'accueil
+                    Retour à l&apos;accueil
+                  </button>
+                </div>
+              ) : ratingStep === 'rate' ? (
+                <div className="animate-enter">
+                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '8px' }}>📦</div>
+                    <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '4px' }}>Livraison réussie !</h2>
+                    <p style={{ color: '#86868b', fontSize: '15px' }}>Évaluez votre expérience</p>
+                  </div>
+                  <DeliveryRating
+                    jobId={jobId}
+                    role="client"
+                    onComplete={() => { setHasRated(true); setRatingStep('tip'); }}
+                  />
+                  <button
+                    onClick={() => setRatingStep('tip')}
+                    style={{
+                      width: '100%', background: 'none', border: 'none',
+                      color: '#86868b', fontSize: '14px', fontWeight: '500',
+                      marginTop: '12px', cursor: 'pointer'
+                    }}
+                  >
+                    Passer
                   </button>
                 </div>
               ) : (
-                <>
-                  <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <div style={{ fontSize: '64px', marginBottom: '16px' }}>📦</div>
-                    <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px' }}>Livraison réussie !</h2>
-                    <p style={{ color: '#86868b', fontSize: '16px' }}>Un petit pourboire pour votre livreur ?</p>
+                <div className="animate-enter" style={{ textAlign: 'center' }}>
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '8px' }}>💝</div>
+                    <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '4px' }}>Un pourboire ?</h2>
+                    <p style={{ color: '#86868b', fontSize: '15px' }}>Encouragez votre livreur</p>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '32px' }}>
@@ -645,18 +768,15 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
                       if (selectedTip && selectedTip > 0) {
                         setIsTipping(true);
                         try {
-                          // Real database update via our API
                           await fetch('/api/jobs', {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
                               id: jobId, 
-                              postTip: selectedTip // Send as a special post-tip field
+                              postTip: selectedTip
                             }),
                           });
-                          
-                          // Simulation delay for the "Apple Pay" feel
-                          await new Promise(r => setTimeout(r, 1000));
+                          await new Promise(r => setTimeout(r, 800));
                         } catch (e) {
                           console.error("Tip update failed", e);
                         } finally {
@@ -675,7 +795,7 @@ export default function TrackingPage({ params }: { params: Promise<{ id: string 
                   >
                     {isTipping ? 'Paiement sécurisé...' : 'Valider'}
                   </button>
-                </>
+                </div>
               )}
             </div>
         </div>

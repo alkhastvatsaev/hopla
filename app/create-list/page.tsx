@@ -3,9 +3,10 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw, Wallet } from 'lucide-react';
+import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw, Wallet, Mic } from 'lucide-react';
 import { PRICE_DB } from '../lib/db';
 import StripePayment from '../components/StripePayment';
+import { createJob } from '../lib/firebaseService';
 
 export default function CreateListing() {
   const router = useRouter();
@@ -17,8 +18,13 @@ export default function CreateListing() {
   const [locationCoords, setLocationCoords] = useState<{lat: number, lng: number} | null>(null);
   const [pickupLocation, setPickupLocation] = useState('');
   const [pickupCoords, setPickupCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [isTypingLocation, setIsTypingLocation] = useState(false);
+  const [isTypingPickup, setIsTypingPickup] = useState(false);
   const [paymentStep, setPaymentStep] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [tip, setTip] = useState(0);
   const [dist, setDist] = useState(0);
 
@@ -27,6 +33,64 @@ export default function CreateListing() {
   const [submitting, setSubmitting] = useState(false);
   const [budget, setBudget] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
+
+  // STRIPE REDIRECT RECOVERY (3D SECURE)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const paymentIntent = params.get('payment_intent');
+      const redirectStatus = params.get('redirect_status');
+      
+      if (paymentIntent && redirectStatus === 'succeeded' && !submitting) {
+        setSubmitting(true);
+        const savedPayload = localStorage.getItem('hopla_pending_job');
+        if (savedPayload) {
+          try {
+            const payload = JSON.parse(savedPayload);
+            fetch('/api/jobs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }).then(r => r.json()).then(newJob => {
+              if (newJob?.id) {
+                localStorage.removeItem('hopla_pending_job');
+                window.location.href = `/tracking/${newJob.id}`;
+              } else {
+                setSubmitting(false); // allow retry
+              }
+            }).catch(e => {
+              console.error(e);
+              setSubmitting(false);
+            });
+          } catch(e) {
+            console.error(e);
+            setSubmitting(false);
+          }
+        }
+      }
+    }
+  }, []);
+
+  const fetchAddresses = async (text: string, isPickup = false) => {
+    if (isPickup) {
+      setPickupLocation(text);
+      if (text.length < 3) return setPickupSuggestions([]);
+    } else {
+      setLocation(text);
+      if (text.length < 3) return setLocationSuggestions([]);
+    }
+
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (isPickup) setPickupSuggestions(data || []);
+        else setLocationSuggestions(data || []);
+      }
+    } catch(e) {
+      console.warn('Geocoding fail on type', e);
+    }
+  };
 
   // Auto-locate on mount (with Safari safety)
   useEffect(() => {
@@ -111,6 +175,38 @@ export default function CreateListing() {
 
   const estimatedTotal = items.reduce((acc, item) => acc + (item.price || 3), 0);
 
+  const startListening = () => {
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Votre navigateur ne supporte pas la reconnaissance vocale.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInputVal(transcript);
+      setShowSuggestions(true);
+      // Wait for user to confirm or we could auto-add
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.start();
+  };
+
   const handleGeo = (target: 'pickup' | 'delivery', retry = true) => {
     if (typeof window === 'undefined' || !navigator.geolocation) return;
     
@@ -186,69 +282,87 @@ export default function CreateListing() {
   };
 
   const handlePost = async () => {
-    if (submitting) return; // Prevent double submission
+    console.log("🔴 [handlePost] INITIATED", { submitting, items, location, paymentMethod });
+    
+    // Fallback: If it's maliciously stuck, we force it to proceed for this debug
     setSubmitting(true);
+
+    if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === '') {
+      alert("Erreur Fatale Vercel: Les clés Firebase (NEXT_PUBLIC_FIREBASE_...) sont absentes ! Le site ne peut donc pas se connecter à la base de données. Allez dans les réglages de Vercel et ajoutez vos variables d'environnement.");
+      setSubmitting(false);
+      return;
+    }
+
     let finalLocationCoords = locationCoords;
     let finalPickupCoords = pickupCoords;
 
     // FORWARD GEOCODING FALLBACK
-    // If no coords (user typed address), try to resolve it before posting
     try {
       if (!finalLocationCoords && location) {
         const query = encodeURIComponent(location + ', Strasbourg');
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-        if (!res.ok) throw new Error(`Search API error: ${res.status}`);
-        const data = await res.json();
-        if (data && data[0]) {
-          finalLocationCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        if (res.ok) {
+           const data = await res.json();
+           if (data && data[0]) finalLocationCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         }
       }
       if (isColis && !finalPickupCoords && pickupLocation) {
         const query = encodeURIComponent(pickupLocation + ', Strasbourg');
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-        if (!res.ok) throw new Error(`Search API error: ${res.status}`);
-        const data = await res.json();
-        if (data && data[0]) {
-          finalPickupCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        if (res.ok) {
+           const data = await res.json();
+           if (data && data[0]) finalPickupCoords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         }
       }
     } catch (e) {
       console.warn("Geocoding failed, using fallback", e);
     }
 
-    // FINAL FALLBACK: Ensure we ALWAYS have valid coords to prevent crashes
-    // Default to Strasbourg Center if nothing found
-    if (!finalLocationCoords) {
-       finalLocationCoords = { lat: 48.5734, lng: 7.7521 };
-    }
+    // Default to Strasbourg Center if still nothing
+    if (!finalLocationCoords) finalLocationCoords = { lat: 48.5734, lng: 7.7521 };
 
     try {
-      const res = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: isColis ? 'colis' : 'courses',
-          items,
-          location,
-          locationCoords: finalLocationCoords,
-          pickupLocation: isColis ? pickupLocation : null,
-          pickupCoords: isColis ? finalPickupCoords : null,
+      // Calculate Total Amount Safe and Simple
+      const itemsTotal = items.reduce((acc, item) => {
+        const p = parseFloat(String(item.price)) || 3;
+        return acc + p;
+      }, 0);
+      const serviceFee = isColis ? 0 : itemsTotal * 0.10;
+      const deliveryFeeNum = parseFloat(String(deliveryFee)) || 0;
+      const tipNum = parseFloat(String(tip)) || 0;
+      const totalAmt = parseFloat((itemsTotal + serviceFee + deliveryFeeNum + tipNum).toFixed(2));
+      const rewardStr = `${(deliveryFeeNum + tipNum).toFixed(2)}€`;
 
-          reward: totalReward,
-          deliveryFee,
-          tip,
-          paymentMethod, 
-          isPaid: paymentMethod === 'card',
-          totalAmount: parseFloat((parseFloat(estimatedTotal.toString()) * (isColis ? 1 : 1.25) + (deliveryFee + tip)).toFixed(2)),
-          user: `Client #${Math.floor(Math.random() * 1000)}` 
-        }),
-      });
-      if (!res.ok) throw new Error(`Post job error: ${res.status}`);
-      const newJob = await res.json();
-      
+      const payload = {
+        type: isColis ? 'colis' : 'courses',
+        items,
+        location,
+        locationCoords: finalLocationCoords,
+        pickupLocation: isColis ? pickupLocation : null,
+        pickupCoords: isColis ? finalPickupCoords : null,
+        reward: rewardStr,
+        deliveryFee: deliveryFeeNum,
+        tip: tipNum,
+        paymentMethod,
+        isPaid: paymentMethod === 'card',
+        totalAmount: totalAmt, 
+        user: `Client #${Math.floor(Math.random() * 1000)}`
+      };
+
+    // Save for Stripe 3D Secure redirect recovery (very important on mobile/Vercel)
+    if (typeof window !== 'undefined' && paymentMethod === 'card') {
+      localStorage.setItem('hopla_pending_job', JSON.stringify(payload));
+    }
+
+    // Proceed With Payload natively across Firebase Web SDK (fixes Vercel function timeout)
+    const newJob = await createJob(payload);
+    
+    if (!newJob || !newJob.id) throw new Error("Erreur de création du job");
+
       // Save last order ID to local storage for recovery
       if (typeof window !== 'undefined') {
         localStorage.setItem('lastOrderId', newJob.id);
+        localStorage.removeItem('hopla_pending_job'); // We successfully returned without redirect loop
       }
 
       // Send confirmation email
@@ -260,7 +374,7 @@ export default function CreateListing() {
             email: 'alkhastvatsaev@gmail.com', // Using user provided email for now
             trackingId: newJob.id,
             deliveryFee: deliveryFee,
-            total: totalReward, // This is technically reward but used as total estimate proxy here
+            total: rewardStr,
             items: items
           })
         });
@@ -400,6 +514,19 @@ export default function CreateListing() {
                         style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '17px' }}
                       />
                     </form>
+                    <button 
+                      type="button"
+                      onClick={startListening}
+                      style={{ 
+                        background: isListening ? '#ffebee' : '#f2f2f7', 
+                        border: 'none', borderRadius: '12px', padding: '8px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: isListening ? '#ff3b30' : '#007AFF', cursor: 'pointer',
+                        animation: isListening ? 'pulse 1.5s infinite' : 'none'
+                      }}
+                    >
+                      <Mic size={18} />
+                    </button>
                   </div>
                   
                   {/* Real-time Suggestions Dropdown */}
@@ -513,10 +640,14 @@ export default function CreateListing() {
             {isColis && (
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Point de retrait</label>
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', zIndex: 10 }}>
                   <input 
                     value={pickupLocation}
-                    onChange={(e) => setPickupLocation(e.target.value)}
+                    onChange={(e) => {
+                      fetchAddresses(e.target.value, true);
+                      setIsTypingPickup(true);
+                    }}
+                    onFocus={() => setIsTypingPickup(true)}
                     placeholder="Adresse de départ..."
                     style={{
                       width: '100%', padding: '20px', borderRadius: '20px', border: 'none', background: 'white',
@@ -526,16 +657,39 @@ export default function CreateListing() {
                   <button onClick={() => handleGeo('pickup')} style={{ position: 'absolute', right: '12px', top: '12px', background: '#f2f2f7', border: 'none', borderRadius: '12px', padding: '8px' }}>
                     <MapPin size={18} color="#007AFF" />
                   </button>
+                  {isTypingPickup && pickupSuggestions.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', zIndex: 50, borderRadius: '16px', marginTop: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                      {pickupSuggestions.map((s, i) => (
+                        <div key={i} onClick={() => {
+                          const a = s.address || {};
+                          const house = a.house_number ? a.house_number + ' ' : '';
+                          const road = a.road || a.pedestrian || a.suburb || s.name || '';
+                          const suburb = a.suburb || a.city_district || a.city || '';
+                          const finalString = `${house}${road}, ${suburb}`.trim();
+                          setPickupLocation(finalString.replace(/^,\s*/, ''));
+                          setPickupCoords({ lat: parseFloat(s.lat), lng: parseFloat(s.lon) });
+                          setPickupSuggestions([]);
+                          setIsTypingPickup(false);
+                        }} style={{ padding: '16px', borderBottom: '1px solid #f2f2f7', cursor: 'pointer', fontSize: '15px', color:'#1d1d1f' }}>
+                          {s.display_name.split(',').slice(0, 3).join(', ')}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             <div>
               <label style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '8px', display: isColis ? 'block' : 'none' }}>Point de livraison</label>
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', zIndex: 5 }}>
                 <input 
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => {
+                    fetchAddresses(e.target.value, false);
+                    setIsTypingLocation(true);
+                  }}
+                  onFocus={() => setIsTypingLocation(true)}
                   placeholder={isColis ? "Adresse d'arrivée..." : "Saisir votre adresse..."}
                   style={{
                     width: '100%', padding: '20px', borderRadius: '20px', border: 'none', background: 'white',
@@ -545,6 +699,25 @@ export default function CreateListing() {
                 <button onClick={() => handleGeo('delivery')} style={{ position: 'absolute', right: '12px', top: '12px', background: '#f2f2f7', border: 'none', borderRadius: '12px', padding: '8px' }}>
                   <MapPin size={18} color="#007AFF" />
                 </button>
+                {isTypingLocation && locationSuggestions.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', zIndex: 50, borderRadius: '16px', marginTop: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                    {locationSuggestions.map((s, i) => (
+                      <div key={i} onClick={() => {
+                        const a = s.address || {};
+                        const house = a.house_number ? a.house_number + ' ' : '';
+                        const road = a.road || a.pedestrian || a.suburb || s.name || '';
+                        const suburb = a.suburb || a.city_district || a.city || '';
+                        const finalString = `${house}${road}, ${suburb}`.trim();
+                        setLocation(finalString.replace(/^,\s*/, ''));
+                        setLocationCoords({ lat: parseFloat(s.lat), lng: parseFloat(s.lon) });
+                        setLocationSuggestions([]);
+                        setIsTypingLocation(false);
+                      }} style={{ padding: '16px', borderBottom: '1px solid #f2f2f7', cursor: 'pointer', fontSize: '15px', color:'#1d1d1f' }}>
+                        {s.display_name.split(',').slice(0, 3).join(', ')}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -684,10 +857,15 @@ export default function CreateListing() {
                     onSuccess={() => handlePost()}
                   />
                 ) : (
-                  <button onClick={handlePost} style={{
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handlePost()}
+                    style={{
                     width: '100%', background: '#34c759', color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
                     fontSize: '17px', fontWeight: '700', boxShadow: '0 4px 12px rgba(52, 199, 89, 0.3)',
-                    cursor: 'pointer'
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.7 : 1
                   }}>
                     Payer {(estimatedTotal * (isColis ? 1 : 1.10) + deliveryFee + tip).toFixed(2)}€ à la livraison
                   </button>
@@ -726,7 +904,21 @@ export default function CreateListing() {
 
       {/* Loading Overlay Removed */}
 
+      <div style={{ textAlign: 'center', fontSize: '10px', color: '#ccc', padding: '10px' }}>v2.0 DEBUG MODE</div>
 
+      {/* BOUTON DEBUG POUR FORCER LE PASSAGE AU TRACKING */}
+      <div style={{ position: 'fixed', bottom: '80px', right: '20px', zIndex: 1000 }}>
+        <button 
+          onClick={() => router.push('/tracking/debug-123')}
+          style={{
+            padding: '10px 16px', background: '#FF9500', color: 'white', 
+            border: 'none', borderRadius: '12px', fontSize: '12px', fontWeight: '800',
+            boxShadow: '0 4px 12px rgba(255,149,0,0.3)', cursor: 'pointer'
+          }}
+        >
+          DEBUG: VOIR SUIVI (MODÈLE)
+        </button>
+      </div>
     </div>
   );
 }

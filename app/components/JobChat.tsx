@@ -64,6 +64,11 @@ export default function JobChat({ jobId, role, onClose }: JobChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const QUICK_ACTIONS: Record<string, string[]> = {
+    client: ['Merci !', 'Je suis en bas', 'À quel étage ?', 'Vous êtes où ?', 'Prenez votre temps'],
+    driver: ['Je suis en route', 'J\'arrive dans 5 min', 'Je suis arrivé', 'Article indisponible', 'Besoin de précisions']
+  };
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !jobId) return;
@@ -78,6 +83,20 @@ export default function JobChat({ jobId, role, onClose }: JobChatProps) {
       setInput('');
     } catch (error) {
       console.error("Error sending message: ", error);
+    }
+  };
+
+  const sendQuickMessage = async (text: string) => {
+    if (!jobId) return;
+    try {
+      await addDoc(collection(db, 'job_chats'), {
+        jobId,
+        text,
+        sender: role,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error sending quick message: ", error);
     }
   };
 
@@ -141,6 +160,25 @@ export default function JobChat({ jobId, role, onClose }: JobChatProps) {
             </div>
           ))}
           <div ref={messagesEndRef} />
+        </div>
+
+        {/* Quick Actions */}
+        <div style={{ padding: '8px 16px', background: 'white', borderTop: '1px solid #f2f2f7', display: 'flex', gap: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          {QUICK_ACTIONS[role]?.map((action) => (
+            <button
+              key={action}
+              onClick={() => sendQuickMessage(action)}
+              style={{
+                padding: '8px 14px', borderRadius: '20px',
+                border: '1.5px solid #E5E5EA', background: '#F9F9FB',
+                fontSize: '13px', fontWeight: '600', color: '#007AFF',
+                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                transition: 'all 0.15s'
+              }}
+            >
+              {action}
+            </button>
+          ))}
         </div>
 
         {/* Input area */}

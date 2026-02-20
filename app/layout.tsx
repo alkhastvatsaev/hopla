@@ -1,12 +1,22 @@
 
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import TabBar from './components/TabBar';
 import SupportChat from './components/SupportChat';
+import { AuthProvider } from './components/AuthProvider';
+import InstallPWA from './components/InstallPWA';
 
 export const metadata: Metadata = {
   title: 'Hopla - Vos courses à Strasbourg',
   description: 'Faites-vous livrer par vos voisins en un clin d\'œil.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Hopla',
+  },
+  formatDetection: {
+    telephone: false,
+  }
 };
 
 export const viewport: Viewport = {
@@ -15,6 +25,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  themeColor: '#007AFF',
 };
 
 export default function RootLayout({
@@ -28,8 +39,11 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       </head>
       <body>
-        <main>{children}</main>
-        <SupportChat />
+        <AuthProvider>
+          <main>{children}</main>
+          <SupportChat />
+          <InstallPWA />
+        </AuthProvider>
       </body>
     </html>
   );
