@@ -323,10 +323,15 @@ export default function CreateListing() {
 
     try {
       // Calculate Total Amount Safe and Simple
-      const itemsTotal = items.reduce((acc, item) => acc + (item.price || 3), 0);
+      const itemsTotal = items.reduce((acc, item) => {
+        const p = parseFloat(String(item.price)) || 3;
+        return acc + p;
+      }, 0);
       const serviceFee = isColis ? 0 : itemsTotal * 0.10;
-      const totalAmt = parseFloat((itemsTotal + serviceFee + deliveryFee + tip).toFixed(2));
-      const rewardStr = `${(deliveryFee + tip).toFixed(2)}€`;
+      const deliveryFeeNum = parseFloat(String(deliveryFee)) || 0;
+      const tipNum = parseFloat(String(tip)) || 0;
+      const totalAmt = parseFloat((itemsTotal + serviceFee + deliveryFeeNum + tipNum).toFixed(2));
+      const rewardStr = `${(deliveryFeeNum + tipNum).toFixed(2)}€`;
 
       const payload = {
         type: isColis ? 'colis' : 'courses',
@@ -336,8 +341,8 @@ export default function CreateListing() {
         pickupLocation: isColis ? pickupLocation : null,
         pickupCoords: isColis ? finalPickupCoords : null,
         reward: rewardStr,
-        deliveryFee,
-        tip,
+        deliveryFee: deliveryFeeNum,
+        tip: tipNum,
         paymentMethod,
         isPaid: paymentMethod === 'card',
         totalAmount: totalAmt, 

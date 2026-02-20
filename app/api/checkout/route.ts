@@ -47,13 +47,23 @@ const getStripe = () => {
 export async function POST(request: Request) {
   try {
     const stripe = getStripe();
-    const { amount, jobId } = await request.json();
+    const body = await request.json();
+    const amount = parseFloat(body.amount);
+    const jobId = body.jobId;
+
+    if (isNaN(amount) || amount <= 0) {
+      console.error("Invalid amount received:", body.amount);
+      return NextResponse.json(
+        { error: "Le montant du paiement est invalide (NaN ou <= 0)." },
+        { status: 400 }
+      );
+    }
 
     // Create a PaymentIntent for the specified amount
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: "eur",
-      metadata: { jobId },
+      metadata: { jobId: jobId || "no_job_id" },
       capture_method: "automatic",
       automatic_payment_methods: {
         enabled: true,

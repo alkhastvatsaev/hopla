@@ -43,3 +43,9 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# Firebase
+.firebase/
+
+# Vercel import env
+VERCEL_IMPORT.env
