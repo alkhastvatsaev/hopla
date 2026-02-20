@@ -49,31 +49,14 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
       setLoading(false);
     } else {
       // Payment successful
-      setPaymentSuccess(true);
       try {
         await onSuccess();
-        // If navigation happens, we won't reach here. 
-        // If we do, keep success state but loading false?
-        // Actually, if we are here, it means onSuccess finished without navigating.
-        // But usually onSuccess should navigate.
       } catch (err: any) {
-        console.error("Post-payment error:", err);
-        setPaymentSuccess(false);
         setErrorMessage(err.message || "Le paiement a réussi mais la commande n'a pas pu être créée.");
         setLoading(false);
       }
     }
   };
-
-  if (paymentSuccess) {
-    return (
-      <div style={{ textAlign: 'center', padding: '20px', color: '#34c759' }}>
-        <div style={{ fontSize: '24px', marginBottom: '8px' }}>✅</div>
-        <div style={{ fontWeight: '700' }}>Paiement réussi</div>
-        <div style={{ fontSize: '14px', color: '#86868b', marginTop: '4px' }}>Finalisation de la commande...</div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
