@@ -287,6 +287,12 @@ export default function CreateListing() {
     // Fallback: If it's maliciously stuck, we force it to proceed for this debug
     setSubmitting(true);
 
+    if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === '') {
+      alert("Erreur Fatale Vercel: Les clés Firebase (NEXT_PUBLIC_FIREBASE_...) sont absentes ! Le site ne peut donc pas se connecter à la base de données. Allez dans les réglages de Vercel et ajoutez vos variables d'environnement.");
+      setSubmitting(false);
+      return;
+    }
+
     let finalLocationCoords = locationCoords;
     let finalPickupCoords = pickupCoords;
 
