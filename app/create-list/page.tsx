@@ -298,67 +298,42 @@ export default function CreateListing() {
         user: `Client #${Math.floor(Math.random() * 1000)}`
       };
 
-      let newJobId = null;
+    // Proceed With Payload
+    const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`Post job error: ${res.status}`);
+      const newJob = await res.json();
+      
+      // Save last order ID to local storage for recovery
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastOrderId', newJob.id);
+      }
 
-      // ATTEMPT SERVER CREATION
+      // Send confirmation email
       try {
-        const res = await fetch('/api/jobs', {
+        await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            email: 'alkhastvatsaev@gmail.com', // Using user provided email for now
+            trackingId: newJob.id,
+            deliveryFee: deliveryFee,
+            total: rewardStr,
+            items: items
+          })
         });
-
-        if (!res.ok) {
-           const errData = await res.json().catch(() => ({}));
-           throw new Error(errData.error || `Erreur serveur (${res.status})`);
-        }
-        
-        const data = await res.json();
-        newJobId = data.id;
-
-      } catch (serverError) {
-        console.error("Server Job Creation Failed:", serverError);
-        
-        // AUTO-FALLBACK FOR CASH ONLY
-        if (paymentMethod === 'cash') {
-           console.warn("Using offline fallback for cash payment.");
-           newJobId = `offline_${Date.now()}`;
-           // We could save payload to localStorage here for later sync
-        } else {
-           throw serverError; // Card payments MUST happen on server
-        }
+      } catch (emailErr) {
+        console.warn("Email failed but order created", emailErr);
       }
 
-      if (newJobId) {
-         // Save ID for recovery
-         if (typeof window !== 'undefined') localStorage.setItem('lastOrderId', newJobId);
-
-         // Send Email (Fire & Forget) - only if we have a real ID or want to try anyway
-         if (!newJobId.startsWith('offline_')) {
-            fetch('/api/send-email', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: 'alkhastvatsaev@gmail.com',
-                trackingId: newJobId,
-                deliveryFee: deliveryFee,
-                total: rewardStr,
-                items: items
-              })
-            }).catch(e => console.warn("Email error:", e));
-         }
-
-         // Redirect immediately
-         window.location.href = `/tracking/${newJobId}`;
-      }
-
+      router.push(`/tracking/${newJob.id}`); 
     } catch (error) {
-      console.error("Critical submission error:", error);
-      alert((error as Error).message || "Une erreur est survenue.");
+      console.error(error);
+      alert("Erreur lors de l'envoi");
       setSubmitting(false);
-      
-      // If payment was card, let Stripe component handle it (rethrow)
-      if (paymentMethod === 'card') throw error;
     }
   };
 
