@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Send, User, MessageSquare } from 'lucide-react';
+import { RequireAdmin } from '../../components/RouteGuards';
 
 export default function SupportAdmin() {
   const [conversations, setConversations] = useState<string[]>([]);
@@ -67,6 +68,7 @@ export default function SupportAdmin() {
   };
 
   return (
+    <RequireAdmin>
     <div style={{ display: 'flex', height: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, sans-serif' }}>
       
       {/* Sidebar: Conversations List */}
@@ -151,5 +153,6 @@ export default function SupportAdmin() {
       </div>
 
     </div>
+    </RequireAdmin>
   );
 }
