@@ -1,0 +1,212 @@
+/* [project]/Desktop/COURSES/hopla/app/globals.css [app-client] (css) */
+:root {
+  --ios-background: 242, 242, 247;
+  --ios-surface: 255, 255, 255;
+  --ios-surface-glass: 255, 255, 255, .65;
+  --ios-text-primary: 0, 0, 0;
+  --ios-text-secondary: 60, 60, 67, .6;
+  --accent-blue: 0, 122, 255;
+  --accent-blue-gradient: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  --accent-green-gradient: linear-gradient(135deg, #a8ff78 0%, #78ffd6 100%);
+  --accent-purple-gradient: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+  --glass-border: 1px solid #fff6;
+  --glass-shadow: 0 8px 32px 0 #1f268712;
+  --ios-blur: blur(25px) saturate(180%);
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 32px;
+  --radius-full: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ios-background: 242, 242, 247;
+    --ios-surface: 255, 255, 255;
+    --ios-surface-glass: 255, 255, 255, .65;
+    --ios-text-primary: 0, 0, 0;
+    --ios-text-secondary: 60, 60, 67, .6;
+    --glass-border: 1px solid #fff6;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, sans-serif;
+}
+
+body {
+  color: #1d1d1f;
+  -webkit-font-smoothing: antialiased;
+  background-color: #f5f5f7;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 0 120px;
+}
+
+main {
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .mobile-fixed-footer {
+    -webkit-backdrop-filter: blur(20px) !important;
+    z-index: 1000 !important;
+    background: #f2f2f7cc !important;
+    border-top: 1px solid #0000000d !important;
+    padding: 20px 20px 40px !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+  }
+
+  .mobile-tab-bar {
+    width: calc(100% - 20px) !important;
+    bottom: 20px !important;
+    left: 10px !important;
+    right: 10px !important;
+  }
+}
+
+h1, h2, h3 {
+  letter-spacing: -.03em;
+  color: #1d1d1f;
+  font-weight: 800;
+}
+
+h1.hero-title {
+  background: linear-gradient(120deg, #1d1d1f, #8e8e93);
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 10px 30px #0000001a;
+  -webkit-background-clip: text;
+  background-clip: text;
+  font-size: 3rem;
+}
+
+.glass-panel {
+  background: rgba(var(--ios-surface-glass));
+  -webkit-backdrop-filter: var(--ios-blur);
+  border-radius: var(--radius-lg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.bento-card {
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  border: 1px solid #0000000d;
+  padding: 24px;
+  transition: transform .3s cubic-bezier(.34, 1.56, .64, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px #00000008;
+}
+
+.bento-card:active {
+  transform: scale(.96);
+}
+
+.modern-input {
+  border-radius: var(--radius-full);
+  width: 100%;
+  color: inherit;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  background: #7878801f;
+  border: none;
+  padding: 16px 24px;
+  font-size: 17px;
+  transition: all .3s;
+}
+
+.modern-input:focus {
+  background: #78788033;
+  outline: none;
+  box-shadow: 0 0 0 4px #007aff4d;
+}
+
+.fab-primary {
+  background: var(--accent-blue-gradient);
+  color: #fff;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  border: none;
+  padding: 18px 32px;
+  font-size: 18px;
+  font-weight: 700;
+  transition: transform .2s;
+  box-shadow: 0 10px 40px -10px #00c6ff80;
+}
+
+.fab-primary:active {
+  transform: scale(.95);
+}
+
+.glass {
+  -webkit-backdrop-filter: blur(20px);
+  background: #ffffffb3;
+  border: 1px solid #0000000d;
+  box-shadow: 0 4px 20px #0000000d;
+}
+
+.glass-dark {
+  -webkit-backdrop-filter: blur(20px);
+  background: #0000000d;
+  border: 1px solid #0000000d;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.animate-float {
+  animation: 6s ease-in-out infinite float;
+}
+
+.animate-enter {
+  animation: .4s cubic-bezier(.2, .8, .2, 1) enter;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hover-scale {
+  transition: transform .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.hover-scale:active {
+  transform: scale(.95);
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+/*# sourceMappingURL=Desktop_COURSES_hopla_app_globals_a2f9af9b.css.map*/
