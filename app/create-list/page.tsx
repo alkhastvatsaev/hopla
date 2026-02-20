@@ -349,7 +349,7 @@ export default function CreateListing() {
          }
 
          // Redirect immediately
-         router.push(`/tracking/${newJobId}`);
+         window.location.href = `/tracking/${newJobId}`;
       }
 
     } catch (error) {
