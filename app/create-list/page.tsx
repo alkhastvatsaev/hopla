@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw, Wallet, Mic } from 'lucide-react';
 import { PRICE_DB } from '../lib/db';
 import StripePayment from '../components/StripePayment';
+import { createJob } from '../lib/firebaseService';
 
 export default function CreateListing() {
   const router = useRouter();
@@ -342,15 +343,11 @@ export default function CreateListing() {
       localStorage.setItem('hopla_pending_job', JSON.stringify(payload));
     }
 
-    // Proceed With Payload
-    const res = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error(`Post job error: ${res.status}`);
-      const newJob = await res.json();
-      
+    // Proceed With Payload natively across Firebase Web SDK (fixes Vercel function timeout)
+    const newJob = await createJob(payload);
+    
+    if (!newJob || !newJob.id) throw new Error("Erreur de création du job");
+
       // Save last order ID to local storage for recovery
       if (typeof window !== 'undefined') {
         localStorage.setItem('lastOrderId', newJob.id);
