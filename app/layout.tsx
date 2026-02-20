@@ -1,7 +1,6 @@
 
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import TabBar from './components/TabBar';
 import SupportChat from './components/SupportChat';
 import { AuthProvider } from './components/AuthProvider';
 import InstallPWA from './components/InstallPWA';
@@ -42,7 +41,6 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <main>{children}</main>
-          <TabBar />
           <SupportChat />
           <InstallPWA />
         </AuthProvider>
