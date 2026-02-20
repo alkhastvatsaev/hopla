@@ -896,6 +896,7 @@ export default function CreateListing() {
 
       {/* Loading Overlay Removed */}
 
+      <div style={{ textAlign: 'center', fontSize: '10px', color: '#ccc', padding: '10px' }}>v2.0 DEBUG MODE</div>
 
     </div>
   );
