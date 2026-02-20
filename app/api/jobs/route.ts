@@ -52,9 +52,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Données de mission manquantes' }, { status: 400 });
     }
 
-    const newJob = await createJob(body);
+    console.log("[API POST /jobs] Checking environment variables...");
+    const hasFirebaseEnv = !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    if (!hasFirebaseEnv) {
+      console.warn("[API POST /jobs] WARNING: NEXT_PUBLIC_FIREBASE_PROJECT_ID is undefined on the server!");
+    }
+
+    console.log("[API POST /jobs] Creating job...");
+    
+    // Add a 10-second timeout so the Vercel function doesn't hang forever
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Firebase createJob command timed out after 8 seconds. This means Vercel cannot connect to Firebase (probably missing or incorrect ENV keys).")), 8000)
+    );
+
+    const newJob = await Promise.race([
+      createJob(body),
+      timeoutPromise
+    ]) as { id: string };
+
+    console.log("[API POST /jobs] Job created successfully:", newJob.id);
     return NextResponse.json(newJob);
   } catch (e: any) {
+    console.error("[API POST /jobs] Error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
