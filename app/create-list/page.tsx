@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw, Wallet } from 'lucide-react';
+import { ArrowLeft, MapPin, ShoppingBag, CreditCard, Smartphone, ShieldCheck, Search, Package, ShoppingCart, ArrowRight, HeartPulse, TrendingUp, RefreshCw, Wallet, Mic } from 'lucide-react';
 import { PRICE_DB } from '../lib/db';
 import StripePayment from '../components/StripePayment';
 
@@ -17,8 +17,13 @@ export default function CreateListing() {
   const [locationCoords, setLocationCoords] = useState<{lat: number, lng: number} | null>(null);
   const [pickupLocation, setPickupLocation] = useState('');
   const [pickupCoords, setPickupCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [isTypingLocation, setIsTypingLocation] = useState(false);
+  const [isTypingPickup, setIsTypingPickup] = useState(false);
   const [paymentStep, setPaymentStep] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [tip, setTip] = useState(0);
   const [dist, setDist] = useState(0);
 
@@ -27,6 +32,27 @@ export default function CreateListing() {
   const [submitting, setSubmitting] = useState(false);
   const [budget, setBudget] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
+
+  const fetchAddresses = async (text: string, isPickup = false) => {
+    if (isPickup) {
+      setPickupLocation(text);
+      if (text.length < 3) return setPickupSuggestions([]);
+    } else {
+      setLocation(text);
+      if (text.length < 3) return setLocationSuggestions([]);
+    }
+
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (isPickup) setPickupSuggestions(data || []);
+        else setLocationSuggestions(data || []);
+      }
+    } catch(e) {
+      console.warn('Geocoding fail on type', e);
+    }
+  };
 
   // Auto-locate on mount (with Safari safety)
   useEffect(() => {
@@ -110,6 +136,38 @@ export default function CreateListing() {
   };
 
   const estimatedTotal = items.reduce((acc, item) => acc + (item.price || 3), 0);
+
+  const startListening = () => {
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Votre navigateur ne supporte pas la reconnaissance vocale.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInputVal(transcript);
+      setShowSuggestions(true);
+      // Wait for user to confirm or we could auto-add
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.start();
+  };
 
   const handleGeo = (target: 'pickup' | 'delivery', retry = true) => {
     if (typeof window === 'undefined' || !navigator.geolocation) return;
@@ -428,6 +486,19 @@ export default function CreateListing() {
                         style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '17px' }}
                       />
                     </form>
+                    <button 
+                      type="button"
+                      onClick={startListening}
+                      style={{ 
+                        background: isListening ? '#ffebee' : '#f2f2f7', 
+                        border: 'none', borderRadius: '12px', padding: '8px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: isListening ? '#ff3b30' : '#007AFF', cursor: 'pointer',
+                        animation: isListening ? 'pulse 1.5s infinite' : 'none'
+                      }}
+                    >
+                      <Mic size={18} />
+                    </button>
                   </div>
                   
                   {/* Real-time Suggestions Dropdown */}
@@ -541,10 +612,14 @@ export default function CreateListing() {
             {isColis && (
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Point de retrait</label>
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', zIndex: 10 }}>
                   <input 
                     value={pickupLocation}
-                    onChange={(e) => setPickupLocation(e.target.value)}
+                    onChange={(e) => {
+                      fetchAddresses(e.target.value, true);
+                      setIsTypingPickup(true);
+                    }}
+                    onFocus={() => setIsTypingPickup(true)}
                     placeholder="Adresse de départ..."
                     style={{
                       width: '100%', padding: '20px', borderRadius: '20px', border: 'none', background: 'white',
@@ -554,16 +629,39 @@ export default function CreateListing() {
                   <button onClick={() => handleGeo('pickup')} style={{ position: 'absolute', right: '12px', top: '12px', background: '#f2f2f7', border: 'none', borderRadius: '12px', padding: '8px' }}>
                     <MapPin size={18} color="#007AFF" />
                   </button>
+                  {isTypingPickup && pickupSuggestions.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', zIndex: 50, borderRadius: '16px', marginTop: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                      {pickupSuggestions.map((s, i) => (
+                        <div key={i} onClick={() => {
+                          const a = s.address || {};
+                          const house = a.house_number ? a.house_number + ' ' : '';
+                          const road = a.road || a.pedestrian || a.suburb || s.name || '';
+                          const suburb = a.suburb || a.city_district || a.city || '';
+                          const finalString = `${house}${road}, ${suburb}`.trim();
+                          setPickupLocation(finalString.replace(/^,\s*/, ''));
+                          setPickupCoords({ lat: parseFloat(s.lat), lng: parseFloat(s.lon) });
+                          setPickupSuggestions([]);
+                          setIsTypingPickup(false);
+                        }} style={{ padding: '16px', borderBottom: '1px solid #f2f2f7', cursor: 'pointer', fontSize: '15px', color:'#1d1d1f' }}>
+                          {s.display_name.split(',').slice(0, 3).join(', ')}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             <div>
               <label style={{ fontSize: '13px', fontWeight: '700', color: '#86868b', textTransform: 'uppercase', marginBottom: '8px', display: isColis ? 'block' : 'none' }}>Point de livraison</label>
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', zIndex: 5 }}>
                 <input 
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => {
+                    fetchAddresses(e.target.value, false);
+                    setIsTypingLocation(true);
+                  }}
+                  onFocus={() => setIsTypingLocation(true)}
                   placeholder={isColis ? "Adresse d'arrivée..." : "Saisir votre adresse..."}
                   style={{
                     width: '100%', padding: '20px', borderRadius: '20px', border: 'none', background: 'white',
@@ -573,6 +671,25 @@ export default function CreateListing() {
                 <button onClick={() => handleGeo('delivery')} style={{ position: 'absolute', right: '12px', top: '12px', background: '#f2f2f7', border: 'none', borderRadius: '12px', padding: '8px' }}>
                   <MapPin size={18} color="#007AFF" />
                 </button>
+                {isTypingLocation && locationSuggestions.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', zIndex: 50, borderRadius: '16px', marginTop: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                    {locationSuggestions.map((s, i) => (
+                      <div key={i} onClick={() => {
+                        const a = s.address || {};
+                        const house = a.house_number ? a.house_number + ' ' : '';
+                        const road = a.road || a.pedestrian || a.suburb || s.name || '';
+                        const suburb = a.suburb || a.city_district || a.city || '';
+                        const finalString = `${house}${road}, ${suburb}`.trim();
+                        setLocation(finalString.replace(/^,\s*/, ''));
+                        setLocationCoords({ lat: parseFloat(s.lat), lng: parseFloat(s.lon) });
+                        setLocationSuggestions([]);
+                        setIsTypingLocation(false);
+                      }} style={{ padding: '16px', borderBottom: '1px solid #f2f2f7', cursor: 'pointer', fontSize: '15px', color:'#1d1d1f' }}>
+                        {s.display_name.split(',').slice(0, 3).join(', ')}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

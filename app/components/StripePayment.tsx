@@ -8,6 +8,7 @@ import {
   Elements,
   useStripe,
   useElements,
+  ExpressCheckoutElement
 } from '@stripe/react-stripe-js';
 
 // Initialize Stripe (use your publishable key here)
@@ -75,21 +76,44 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-      <PaymentElement />
-      {errorMessage && <div style={{ color: '#ff3b30', marginTop: '12px', fontSize: '14px' }}>{errorMessage}</div>}
-      <button 
-        disabled={loading || !stripe} 
-        style={{
-          width: '100%', background: '#007AFF',
-          color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
-          fontSize: '17px', fontWeight: '700', transition: 'all 0.3s',
-          marginTop: '24px', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer'
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Express Checkout (Apple Pay / Google Pay) */}
+      <ExpressCheckoutElement 
+        onConfirm={() => {
+          // Additional logic if needed prior to confirmation, 
+          // but Stripe handles the confirmation automatically for Express Checkout.
+          // Note: Express Checkout will redirect or trigger payment success,
+          // then we might want to trigger onSuccess manually or listen to Stripe events.
         }}
-      >
-        {loading ? 'Traitement...' : `Payer ${amount.toFixed(2)}€`}
-      </button>
-    </form>
+        options={{
+          buttonTheme: {
+            applePay: 'black'
+          }
+        }}
+      />
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ flex: 1, height: '1px', background: '#ccc' }}></div>
+        <div style={{ fontSize: '12px', color: '#888', fontWeight: 'bold' }}>OU</div>
+        <div style={{ flex: 1, height: '1px', background: '#ccc' }}></div>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+        <PaymentElement />
+        {errorMessage && <div style={{ color: '#ff3b30', marginTop: '12px', fontSize: '14px' }}>{errorMessage}</div>}
+        <button 
+          disabled={loading || !stripe} 
+          style={{
+            width: '100%', background: '#007AFF',
+            color: 'white', border: 'none', borderRadius: '16px', padding: '18px',
+            fontSize: '17px', fontWeight: '700', transition: 'all 0.3s',
+            marginTop: '24px', opacity: loading ? 0.7 : 1
+          }}
+        >
+          {loading ? 'Traitement...' : `Payer ${amount.toFixed(2)}€`}
+        </button>
+      </form>
+    </div>
   );
 }
 
