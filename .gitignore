@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# additional ignores
+*.env
+.firebase/
+.netlify/
+*.bak
+Desktop/
