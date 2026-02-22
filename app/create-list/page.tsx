@@ -224,9 +224,8 @@ export default function CreateListing() {
   );
 
   const startListening = () => {
-    // @ts-ignore
     const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Votre navigateur ne supporte pas la reconnaissance vocale.");
       return;
