@@ -6,6 +6,15 @@ Hopla is a mobile-first marketplace prototype for neighborhood grocery and parce
 
 The product UI is in French because it targets Strasbourg; the engineering documentation is in English.
 
+![Hopla customer home screen on desktop](docs/screenshots/home-desktop.png)
+
+<details>
+<summary>Mobile view</summary>
+
+![Hopla customer home screen on mobile](docs/screenshots/home-mobile.png)
+
+</details>
+
 ## Case study
 
 ### Problem
