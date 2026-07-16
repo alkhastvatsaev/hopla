@@ -33,12 +33,27 @@ export default function JobsPage() {
   const [driverProfile, setDriverProfile] = useState<{ displayName: string; photoURL?: string | null } | null>(null);
   const [loadingDriverProfile, setLoadingDriverProfile] = useState(true);
 
-
+  const updateJob = async (body: Record<string, unknown>) => {
+    if (!user) throw new Error('Authentication required');
+    const token = await user.getIdToken();
+    return fetch('/api/jobs', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  };
 
   const fetchJobs = async (silent = false) => {
+    if (!user) return;
     if (!silent) setLoading(true);
     try {
-      const res = await fetch('/api/jobs');
+      const token = await user.getIdToken();
+      const res = await fetch('/api/jobs', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setJobs(data.reverse()); 
@@ -50,10 +65,11 @@ export default function JobsPage() {
   };
 
   useEffect(() => {
+    if (!user) return;
     fetchJobs();
     const interval = setInterval(() => fetchJobs(true), 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const load = async () => {
@@ -119,16 +135,11 @@ export default function JobsPage() {
       return;
     }
     try {
-      const res = await fetch('/api/jobs', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const res = await updateJob({
           id,
           status: 'taken',
-          driverId: user.uid,
           driverName: driverProfile.displayName,
           driverPhotoUrl: driverProfile.photoURL || null,
-        }),
       });
 
       if (res.status === 409) {
@@ -150,10 +161,11 @@ export default function JobsPage() {
     e.stopPropagation();
     try {
       for (const job of combo) {
-        await fetch('/api/jobs', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: job.id, status: 'taken' }),
+        await updateJob({
+          id: job.id,
+          status: 'taken',
+          driverName: driverProfile?.displayName,
+          driverPhotoUrl: driverProfile?.photoURL || null,
         });
       }
       fetchJobs();
@@ -170,15 +182,11 @@ export default function JobsPage() {
     const totalToCollect = (rewardVal + ticketVal).toFixed(2);
 
     try {
-      await fetch('/api/jobs', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+      await updateJob({
           id, 
           status: 'delivering', 
           ticketPrice: ticketVal, 
           totalToCollect 
-        }),
       });
       fetchJobs();
     } catch (e) {
@@ -198,11 +206,7 @@ export default function JobsPage() {
 
     try {
       if (confirm(message)) {
-        await fetch('/api/jobs', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, status: 'completed', isPaid: true }),
-        });
+        await updateJob({ id, status: 'completed' });
         fetchJobs();
       }
     } catch (e) {
@@ -224,11 +228,7 @@ export default function JobsPage() {
     e.stopPropagation();
     if (!confirm('Êtes-vous sûr de vouloir annuler cette mission ? Elle sera remise en ligne.')) return;
     try {
-      await fetch('/api/jobs', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'open' }),
-      });
+      await updateJob({ id, status: 'open' });
       fetchJobs();
     } catch (e) {
       console.error(e);
@@ -367,21 +367,6 @@ export default function JobsPage() {
             {/* ACCOUNTING HUB */}
             {/* ACCOUNTING HUB */}
             <div style={{ background: 'white', borderRadius: '28px', padding: '32px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', marginBottom: '24px', textAlign: 'center', position: 'relative' }}>
-                <button 
-                  onClick={async () => {
-                    if(!confirm('SUPPRIMER TOUTES LES COMMANDES ? (Action irréversible)')) return;
-                    try {
-                      await fetch('/api/jobs', { method: 'DELETE' });
-                      fetchJobs();
-                    } catch(e) { console.error(e); }
-                  }}
-                  style={{
-                    position: 'absolute', top: '16px', right: '16px',
-                    background: '#fff1f0', color: '#ff3b30', border: 'none',
-                    padding: '8px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: '700'
-                  }}>
-                  PURGER TOUT
-                </button>
                 <div style={{ fontSize: '15px', fontWeight: '600', color: '#86868b', marginBottom: '8px' }}>Solde disponible</div>
                 <div style={{ fontSize: '48px', fontWeight: '800', letterSpacing: '-1px', color: '#1d1d1f' }}>{totalEarnings}€</div>
                 <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center', color: '#34c759', background: '#f2fcf5', padding: '8px 16px', borderRadius: '20px', width: 'fit-content', margin: '20px auto 0 auto' }}>

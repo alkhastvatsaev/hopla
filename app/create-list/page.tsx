@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { PRICE_DB } from "../lib/db";
 import StripePayment from "../components/StripePayment";
-import { createJob } from "../lib/firebaseService";
 
 export default function CreateListing() {
   const router = useRouter();
@@ -338,15 +337,7 @@ export default function CreateListing() {
     );
   };
 
-  const handlePost = async () => {
-    console.log("🔴 [handlePost] INITIATED", {
-      submitting,
-      items,
-      location,
-      paymentMethod,
-    });
-
-    // Fallback: If it's maliciously stuck, we force it to proceed for this debug
+  const handlePost = async (paymentIntentId?: string) => {
     setSubmitting(true);
 
     if (
@@ -398,11 +389,6 @@ export default function CreateListing() {
     } catch (e) {
       console.warn("Geocoding failed, using fallback", e);
     }
-    console.log("🔴 [handlePost] GEOCODING DONE", {
-      finalLocationCoords,
-      finalPickupCoords,
-    });
-
     // Default to Strasbourg Center if still nothing
     if (!finalLocationCoords)
       finalLocationCoords = { lat: 48.5734, lng: 7.7521 };
@@ -432,8 +418,10 @@ export default function CreateListing() {
         deliveryFee: deliveryFeeNum,
         tip: tipNum,
         paymentMethod,
-        isPaid: paymentMethod === "card",
+        isPaid: false,
         totalAmount: totalAmt,
+        distanceKm: dist,
+        paymentIntentId,
         user: `Client #${Math.floor(Math.random() * 1000)}`,
       };
 
@@ -442,34 +430,21 @@ export default function CreateListing() {
         localStorage.setItem("hopla_pending_job", JSON.stringify(payload));
       }
 
-      console.log("🔴 [handlePost] CALLING FIREBASE createJob NOW...");
-      // Proceed With Payload natively across Firebase Web SDK (fixes Vercel function timeout)
-      const newJob = await createJob(payload);
-      console.log("🔴 [handlePost] FIREBASE createJob SUCCESS", { newJob });
+      const response = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const newJob = await response.json();
 
-      if (!newJob || !newJob.id) throw new Error("Erreur de création du job");
+      if (!response.ok || !newJob?.id) {
+        throw new Error(newJob?.error || "Erreur de création du job");
+      }
 
       // Save last order ID to local storage for recovery
       if (typeof window !== "undefined") {
         localStorage.setItem("lastOrderId", newJob.id);
         localStorage.removeItem("hopla_pending_job"); // We successfully returned without redirect loop
-      }
-
-      // Send confirmation email
-      try {
-        await fetch("/api/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: "alkhastvatsaev@gmail.com", // Using user provided email for now
-            trackingId: newJob.id,
-            deliveryFee: deliveryFee,
-            total: rewardStr,
-            items: items,
-          }),
-        });
-      } catch (emailErr) {
-        console.warn("Email failed but order created", emailErr);
       }
 
       router.push(`/tracking/${newJob.id}`);
@@ -1652,7 +1627,13 @@ export default function CreateListing() {
                         tip
                       ).toFixed(2),
                     )}
-                    onSuccess={() => handlePost()}
+                    quote={{
+                      type: isColis ? "colis" : "courses",
+                      items,
+                      distanceKm: dist,
+                      tip,
+                    }}
+                    onSuccess={(paymentIntentId) => handlePost(paymentIntentId)}
                   />
                 ) : (
                   <button
@@ -1732,45 +1713,6 @@ export default function CreateListing() {
         </div>
       )}
 
-      {/* Loading Overlay Removed */}
-
-      <div
-        style={{
-          textAlign: "center",
-          fontSize: "10px",
-          color: "#ccc",
-          padding: "10px",
-        }}
-      >
-        v2.0 DEBUG MODE
-      </div>
-
-      {/* BOUTON DEBUG POUR FORCER LE PASSAGE AU TRACKING */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: "80px",
-          right: "20px",
-          zIndex: 1000,
-        }}
-      >
-        <button
-          onClick={() => router.push("/tracking/debug-123")}
-          style={{
-            padding: "10px 16px",
-            background: "#FF9500",
-            color: "white",
-            border: "none",
-            borderRadius: "12px",
-            fontSize: "12px",
-            fontWeight: "800",
-            boxShadow: "0 4px 12px rgba(255,149,0,0.3)",
-            cursor: "pointer",
-          }}
-        >
-          DEBUG: VOIR SUIVI (MODÈLE)
-        </button>
-      </div>
     </div>
   );
 }

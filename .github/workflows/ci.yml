@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Firebase is initialized during Next.js page collection; these values are
+      # non-secret compile-time placeholders and cannot access a real project.
+      NEXT_PUBLIC_FIREBASE_API_KEY: build-placeholder
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: build.invalid
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: hopla-build
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: build.invalid
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "0"
+      NEXT_PUBLIC_FIREBASE_APP_ID: build-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
