@@ -10,6 +10,7 @@ import {
   useElements,
   ExpressCheckoutElement
 } from '@stripe/react-stripe-js';
+import type { CheckoutQuoteInput } from '../lib/checkout';
 
 // Initialize Stripe (use your publishable key here)
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
@@ -17,7 +18,7 @@ const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
 
 interface CheckoutFormProps {
   amount: number;
-  onSuccess: () => Promise<void> | void;
+  onSuccess: (paymentIntentId: string) => Promise<void> | void;
 }
 
 function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
@@ -35,7 +36,7 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
     setLoading(true);
     setErrorMessage(null);
 
-    const { error } = await stripe.confirmPayment({
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
         // Just return to home for now as state recovery is complex
@@ -50,7 +51,10 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
     } else {
       // Payment successful
       try {
-        await onSuccess();
+        if (!paymentIntent || paymentIntent.status !== 'succeeded') {
+          throw new Error("Le paiement n'a pas pu être vérifié.");
+        }
+        await onSuccess(paymentIntent.id);
       } catch (err: any) {
         setErrorMessage(err.message || "Le paiement a réussi mais la commande n'a pas pu être créée.");
         setLoading(false);
@@ -102,12 +106,14 @@ function CheckoutForm({ amount, onSuccess }: CheckoutFormProps) {
 
 interface StripePaymentProps {
   amount: number;
-  onSuccess: () => void;
+  quote: CheckoutQuoteInput;
+  onSuccess: (paymentIntentId: string) => Promise<void> | void;
 }
 
-export default function StripePayment({ amount, onSuccess }: StripePaymentProps) {
+export default function StripePayment({ amount, quote, onSuccess }: StripePaymentProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const quoteKey = JSON.stringify(quote);
 
   useEffect(() => {
     // Fetch client secret from the server
@@ -115,7 +121,7 @@ export default function StripePayment({ amount, onSuccess }: StripePaymentProps)
     fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount }),
+      body: quoteKey,
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -135,7 +141,7 @@ export default function StripePayment({ amount, onSuccess }: StripePaymentProps)
         console.error("Payment initialization error:", err);
         setErrorMessage(err.message || "Impossible d'initialiser le paiement");
       });
-  }, [amount]);
+  }, [quoteKey]);
 
   if (errorMessage) {
     return (
