@@ -101,3 +101,7 @@ Vitest covers server-side quote rules and abuse limits. GitHub Actions runs lint
 3. Add Stripe webhooks, idempotent order finalization and refunds.
 4. Replace simulated distance and receipt scanning with routed distance and validated receipts.
 5. Add end-to-end tests, accessibility checks, observability and data-retention controls.
+
+## Author
+
+Built by [Alkhast Vatsaev](https://alkhastvatsaev.dev) — junior Full Stack JavaScript/TypeScript developer ([portfolio](https://alkhastvatsaev.dev), [FR](https://alkhastvatsaev.dev/fr/developpeur-full-stack)).
